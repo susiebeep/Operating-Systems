@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 struct room
 {
@@ -322,7 +324,7 @@ int main (void)
 	//create all connections in the graph
 	while((isGraphFull(gameRoom)) == 0)
 	{
-		addRandomConnection(&gameRoom);
+		addRandomConnection(gameRoom);
 	}
 
 	int con = 0;
@@ -331,28 +333,73 @@ int main (void)
 	char* tempName;
 	for (i = 0; i < 7; i++)
 	{
-		printf("room %d type: %s\n", i, gameRoom[i]->type);
-		printf("room %d name: %s\n", i, gameRoom[i]->name);
-		printf("room %d connections: %d\n", i, gameRoom[i]->numOutboundConnections);
+		printf("ROOM NAME: %s\n", gameRoom[i]->name);
 		con = gameRoom[i]->numOutboundConnections;
 		for (j = 0; j < con; j++)
 		{
 			temp = gameRoom[i]->outBoundConnections[j];
 			tempName = temp->name;
-			printf("connection %d : %s\n", j, tempName);
+			printf("CONNECTION %d : %s\n", (j + 1), tempName);
 		}
+		printf("ROOM TYPE: %s\n", gameRoom[i]->type);
 	}
 
 
+	// create directory and append the name with the process ID
+	int pid = getpid();
+	printf("%d/n", pid);
+	
+ 	char dirName[30];
+	char* prefix = "hibberts.rooms.";
+	sprintf(dirName,"%s" "%d", prefix, pid);
+
+
 	// create a directory with standard permissions
-	//mkdir("hibberts.rooms.$$",0755);
+	mkdir(dirName,0755);
 
 	// open the directory
-	//opendir("hibberts.rooms.$$");
+	opendir(dirName);
+/*
+	char *filePath[7];
 
 	// generate 7 different room files within the directory, one gameRoom struct per file
+	for (i = 0; i < 7; i++)
+	{
+		strcpy(filePath[i], "dirName/room" + i);	
+	}
+*/
+	/*char file1[] = "hibberts.rooms.$$/room1";	
+	char file2[] = "hibberts.rooms.$$/room2";	
+	char file3[] = "hibberts.rooms.$$/room3";	
+	char file4[] = "hibberts.rooms.$$/room4";	
+	char file5[] = "hibberts.rooms.$$/room5";	
+	char file6[] = "hibberts.rooms.$$/room6";	
+	char file7[] = "hibberts.rooms.$$/room7";*/	
 
-	// free memory for each struct
+	// create 7 file descriptors and open the files for reading and writing, creating them if they don't
+	// exist, and if they do exist write over their contents
+	
+/*	int file_descriptor[7];
+	
+	for (i = 0; i < 7; i++)
+	{
+		file_descriptor[i] = open(filePath[i], O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	}	
+*/
+	/*int file_descriptor1 = open(file1, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor2 = open(file2, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor3 = open(file3, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor4 = open(file4, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor5 = open(file5, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor6 = open(file6, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	int file_descriptor7 = open(file7, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);*/
+	
+	// write the second gameRoom structs to each of the 7 files
+
+	// close the directory
+	//closedir("hibberts.rooms.$$");
+	
+	// free memory for each gameRoom struct
 	for (i = 0; i < 7; i++)
 	{
 		free(gameRoom[i]);
