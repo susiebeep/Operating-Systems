@@ -1,8 +1,8 @@
 
 /* ********************************************************************************** 
- ** Program Name: Program 2 - Adventure
- ** Author:  Susan Hibbert
- ** Date: 21st April 2020  			      
+ ** Program Name:	Program 2 - Adventure
+ ** Author:			Susan Hibbert
+ ** Date:			21st April 2020  			      
  ** Description:
  ** *******************************************************************************/
 #include <stdio.h>
@@ -32,25 +32,33 @@ struct room
 }
 
 */
+
+
 /* ********************************************************************************** 
- ** Description: 
- ** Input(s):
+ ** Description: Returns a random room struct only - does not validate if connection
+				 can be added
+ ** Input(s):	 Pointer to an array of room structs
  ** Output(s):
- ** Returns:
+ ** Returns:	A room struct at a random index in the array of room structs passed 
+				as a parameter
  ** *******************************************************************************/
-/*struct room getRandomRoom()
+struct room* getRandomRoom(struct room* roomArr[])
 {
-	// returns a random struct room, does not validate if connection can be added
+	// generate a random index number between 0 and 6
+	int roomNum = (rand() % 7);
+
+	// return the room at the randomly generated index number
+	return roomArr[roomNum];
 }
 
-*/
+
 /* ********************************************************************************** 
  ** Description: Returns whether a connection can be added to a room (i.e. if it has
-		 less than 6 connections to other rooms)
+				 less than 6 connections to other rooms)
  ** Input(s): 	 Pointer to a room struct
  ** Output(s):
  ** Returns: 	 Returns 1 (true) if room has less than 6 connections, else returns
-	    	 0 (false)
+	    		 0 (false)
  ** *******************************************************************************/
 int canAddConnection(struct room* x)
 {
@@ -73,23 +81,35 @@ int canAddConnection(struct room* x)
 }
 
 */
+
+
 /* ********************************************************************************** 
- ** Description:
- ** Input(s):
- ** Output(s):
- ** Returns:
+ ** Description: Connects two rooms together - does not check if connection is valid.
+				 Room on left is connected to the room on the right and not vice versa
+ ** Input(s):	Two pointers to room structs
+ ** Output(s):	Room on left is connected to room on right and added to its struct room
+				array of outbound connections
+ ** Returns:	No return value
  ** *******************************************************************************/
-/*void connectRoom(struct room* x, struct room* y)
+void connectRoom(struct room* x, struct room* y)
 {
-	//connects room x and y together - does not check if connection is valid	
+	// check for number of current connections
+	int indexToAdd = x->numOutboundConnections;
+
+	// add y to x's outbound connections
+	x->outBoundConnections[indexToAdd] = y;
+
+	// increase numOutbound connections
+	(x->numOutboundConnections)++;
 }
 
-*/
+
 /* ********************************************************************************** 
- ** Description:
- ** Input(s):
+ ** Description: Returns whether two rooms are the same room
+ ** Input(s):	 Two pointers to room structs
  ** Output(s):
- ** Returns:
+ ** Returns:	 Returns an integer value - returns 1 (true) if the two rooms are the
+				 same room, else returns 0 (false)
  ** *******************************************************************************/
 int isSameRoom(struct room* x, struct room* y)
 {
@@ -130,6 +150,8 @@ int isSameRoom(struct room* x, struct room* y)
 }
 
 */
+
+
 /* ********************************************************************************** 
  ** Description: Main function
  ** Input(s):
@@ -257,11 +279,17 @@ int main (void)
 		}
 	}
 
-	/*for (i = 0; i < 7; i++)
+	for (i = 0; i < 7; i++)
 	{
 		printf("room %d type: %s\n", i, gameRoom[i].type);
 		printf("room %d name: %s\n", i, gameRoom[i].name);
-	}*/
+	}
+
+	// initialize the number of outbound connections for all the rooms to zero
+	for (i = 0; i < 7; i++)
+	{
+		gameRoom[i].numOutboundConnections = 0;
+	}
 
 	//create all connections in the graph
 	//while(isGraphFull() == 0)
