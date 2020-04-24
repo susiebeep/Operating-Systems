@@ -1,9 +1,10 @@
 
 /* ********************************************************************************** 
- ** Program Name:	Program 2 - Adventure
- ** Author:			Susan Hibbert
- ** Date:			22nd April 2020  			      
- ** Description:
+ ** Program Name:	Program 2 - Adventure (hibberts.buildrooms.c)
+ ** Author:		Susan Hibbert
+ ** Date:		24th April 2020  			      
+ ** Description:	This program creates a series of files that holds descriptions
+			of the in-game rooms and how the rooms are connected
  ** *******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,17 +20,17 @@ struct room
 	char* name;	
 	char* type;	// START_ROOM, END_ROOM or MID_ROOM
 	int numOutboundConnections;	// to keep track of number of outbound connections to other rooms
-	struct room* outBoundConnections[6];	//at least 3, and at most 6
+	struct room* outBoundConnections[6];	//array to store room's outbound connections (at least 3, and at most 6)
 };
 
 
 /* ********************************************************************************** 
  ** Description: Returns whether all of the outbound connections have been set for 
-				 every room i.e. whether each room has at least 3 outbound connections
- ** Input(s):	 Pointer to an array of room structs
- ** Output(s):
- ** Returns:	Returns an integer value - returns 1 (true) if all rooms have at least 
-				3 outbound connections, otherwise returns 0 (false)
+		 every room i.e. whether each room has at least 3 outbound connections
+ ** Input(s):	 Pointer to a room struct pointer/array
+ ** Output(s):   No output
+ ** Returns:	 Returns an integer value - returns 1 (true) if all rooms have at least 
+		 3 outbound connections, otherwise returns 0 (false)
  ** *******************************************************************************/
 int isGraphFull(struct room** roomArr)
 {
@@ -37,9 +38,9 @@ int isGraphFull(struct room** roomArr)
 	int i;
 	for (i = 0; i < 7; i++)
 	{
-			// if any room has less than 3 connections, return false
-			if ((roomArr[i]->numOutboundConnections) < 3)
-			return 0;
+		// if any room has less than 3 connections, return false
+		if ((roomArr[i]->numOutboundConnections) < 3)
+		return 0;
 	}
 	//if reached here, all rooms have at least 3 connections
 	return 1;
@@ -48,11 +49,11 @@ int isGraphFull(struct room** roomArr)
 
 /* ********************************************************************************** 
  ** Description: Returns a random room struct only - does not validate if connection
-				 can be added
- ** Input(s):	 Pointer to an array of room structs
- ** Output(s):
- ** Returns:	A room struct at a random index in the array of room structs passed 
-				as a parameter
+		 can be added
+ ** Input(s):	 Pointer to a room struct pointer/array
+ ** Output(s):	 No output
+ ** Returns:	 Returns a room struct at a random index in the array of room structs
+		 passed  as a parameter
  ** *******************************************************************************/
 struct room* getRandomRoom(struct room** roomArr)
 {
@@ -66,11 +67,11 @@ struct room* getRandomRoom(struct room** roomArr)
 
 /* ********************************************************************************** 
  ** Description: Returns whether a connection can be added to a room (i.e. if it has
-				 less than 6 connections to other rooms)
+		 less than 6 connections to other rooms)
  ** Input(s): 	 Pointer to a room struct
- ** Output(s):
+ ** Output(s):	 No output
  ** Returns: 	 Returns an integer value - returns 1 (true) if room has less than 6
-				 connections, else returns 0 (false)
+		 connections, else returns 0 (false)
  ** *******************************************************************************/
 int canAddConnection(struct room* x)
 {
@@ -82,11 +83,11 @@ int canAddConnection(struct room* x)
 
 
 /* ********************************************************************************** 
- ** Description: Returns whether a connection exists between two rooms
+ ** Description: Returns whether a connection exists between two rooms x and y
  ** Input(s):	 Pointers to two room structs
- ** Output(s):
+ ** Output(s):	 No output
  ** Returns:	 Returns an integer value - returns 1 (true) if a connection exists 
-				 between the rooms, else returns 0 (false)
+		 between the rooms, else returns 0 (false)
  ** *******************************************************************************/
 int connectionExists(struct room* x, struct room* y)
 {
@@ -112,11 +113,11 @@ int connectionExists(struct room* x, struct room* y)
 
 /* ********************************************************************************** 
  ** Description: Connects two rooms together - does not check if connection is valid.
-				 Room on left is connected to the room on the right and not vice versa
- ** Input(s):	Two pointers to room structs
- ** Output(s):	Room on left is connected to room on right and added to its struct room
-				array of outbound connections
- ** Returns:	No return value
+		 Room x is connected to room y (but not vice versa)
+ ** Input(s):	 Pointers to two room structs
+ ** Output(s):	 Room y is added to room x's member variable array of outbound 
+		 connections and one is added to the number of x's outbound connections
+ ** Returns:	 No return value
  ** *******************************************************************************/
 void connectRoom(struct room* x, struct room* y)
 {
@@ -133,10 +134,10 @@ void connectRoom(struct room* x, struct room* y)
 
 /* ********************************************************************************** 
  ** Description: Returns whether two rooms are the same room
- ** Input(s):	 Two pointers to room structs
- ** Output(s):
+ ** Input(s):	 Pointers to two room structs
+ ** Output(s):	 No output
  ** Returns:	 Returns an integer value - returns 1 (true) if the two rooms are the
-				 same room, else returns 0 (false)
+		 same room, else returns 0 (false)
  ** *******************************************************************************/
 int isSameRoom(struct room* x, struct room* y)
 {
@@ -150,9 +151,11 @@ int isSameRoom(struct room* x, struct room* y)
 
 /* ********************************************************************************** 
  ** Description: Adds a random, valid outbound connection from one room to another
- ** Input(s): No input parameters
- ** Output(s):
- ** Returns: No return value
+ ** Input(s): 	 Pointer to a room struct pointer/array
+ ** Output(s): 	 Adds room struct B to room struct A's member variable array of 
+		 outbound connections, and vice versa (both chosen at random from the
+		 room struct array passed as a parameter)
+ ** Returns: 	 No return value
  ** *******************************************************************************/
 void addRandomConnection(struct room** roomArr)
 {
@@ -184,10 +187,12 @@ void addRandomConnection(struct room** roomArr)
 
 
 /* ********************************************************************************** 
- ** Description: Main function
- ** Input(s):
- ** Output(s):
- ** Returns:
+ ** Description: Main function - creates a series of files that hold descriptions of
+		 the in-game rooms and how the rooms are connected.
+ ** Input(s):	 No input
+ ** Output(s): 	 Local directory containing 7 room files, one room per file
+ ** Returns:  	 Returns an integer - returns 0 if no errors, otherwise returns 1 (if
+	      	 error occurred when trying to open a file for writing to)
  ** *******************************************************************************/
 int main (void)
 {
@@ -197,7 +202,7 @@ int main (void)
 	// create an array of 7 room structs called gameRoom
 	struct room* gameRoom[7];
 
-	// allocate memory for each struct
+	// allocate dynamic memory for each gameRoom struct
 	int i;
 	for (i = 0; i < 7; i++)
 	{
@@ -205,17 +210,16 @@ int main (void)
 	}
 
 
-	// create a 10 char arrays which are 9 characters each (8 characters plus 1 for null terminator)
+	// ROOM NAMES: create 10 char arrays which are 9 characters each (8 characters plus 1 for null terminator)
 	// to represent the room names to be randomly assigned to each of the rooms
 	char roomName[10][9] = { "Library", "Arcade", "Cellar", "Kitchen", "Pool", "Hallway", "Bathroom", "Lab", "Bedroom", "Garage"};
 
-	// create a 3 char arrays which are 11 characters each (10 characters plus 1 for null terminator)
+	// ROOM TYPES: create 3 char arrays which are 11 characters each (10 characters plus 1 for null terminator)
 	// to represent the room types to be randomly assigned to each of the rooms (only one room can be
 	// assigned START_ROOM and END_ROOM)
 	char roomType[3][11] = {"START_ROOM", "END_ROOM", "MID_ROOM"}; 
 	
-	
-	// assign the room names at random to each of the rooms
+	// ROOM NAME ASSIGNMENT: assign the room names at random to each of the rooms
 	int num = 0;
 
 	// int array to hold boolean values to determine whether a room name has been assigned or not,
@@ -245,11 +249,11 @@ int main (void)
 		boolArr[num] = 1;
 	}
 
-	// assign the room types at random to each of the rooms
+	// ROOM TYPE ASSIGNMENT: assign the room types at random to each of the rooms
 	int num1 = 0;
 
-	// booleans to keep track if the START_ROOM and END_ROOM have been assigned, initialized
-	// to 0 (i.e. false, not assigned)
+	// boolean variables to keep track whether the START_ROOM and END_ROOM have been assigned, 
+	// initialized to 0 (i.e. false, not assigned)
 	int start = 0;
 	int end = 0;
 
@@ -310,26 +314,28 @@ int main (void)
 					gameRoom[i]->type = roomType[2];
 				}
 		}
-		// if MID_ROOM comes up, assign it to the room
+		// if MID_ROOM comes up, assign that type to the room
 		if (num1 == 2)
 		{
 			gameRoom[i]->type = roomType[2];
 		}
 	}
 
+	// OUTBOUND CONNECTIONS:
 	// initialize the number of outbound connections for all the rooms to zero
 	for (i = 0; i < 7; i++)
 	{
 		gameRoom[i]->numOutboundConnections = 0;
 	}
 
-	//create all connections in the graph
+	// create all connections in the graph at random
 	while((isGraphFull(gameRoom)) == 0)
 	{
 		addRandomConnection(gameRoom);
 	}
 
-	// create directory and append the name with the process ID
+	// CREATE ROOM FILES:
+	// create directory to hold the room files and append its name with the process ID
 	int pid = getpid();
 	
  	char dirName[30];
@@ -356,7 +362,7 @@ int main (void)
 
 
 	// declare 7 file descriptors and temporary variables to be used when writing the 
-	// 7 gameRoom structs to the 7 files
+	// gameRoom structs to the files
 	
 	int file_descriptor[7];
 	int con = 0;	//track the number of outbound connections for each room
@@ -375,6 +381,7 @@ int main (void)
 	wrTypeName1 = malloc(1024*sizeof(char));
 	wrTypeName2 = malloc(1024*sizeof(char));
 
+	// WRITE EACH ROOM TO A FILE
 	for (i = 0; i < 7; i++)
 	{
 		// open each file for reading and writing, creating them if they don't exist,
@@ -387,8 +394,8 @@ int main (void)
 			printf("Could not open file: room%d", i);
 			exit(1);
 		}
-		// write the name of the room to the file
-			
+	
+		// write the name of the room to the file		
 		sprintf(wrRoomName, "ROOM NAME: %s\n", gameRoom[i]->name);
 		write(file_descriptor[i], wrRoomName, strlen(wrRoomName)*sizeof(char));
 		con = gameRoom[i]->numOutboundConnections;
@@ -407,7 +414,7 @@ int main (void)
 		sprintf(wrTypeName2, "ROOM TYPE: %s\n", wrTypeName1);
 		write(file_descriptor[i], wrTypeName2, strlen(wrTypeName2)*sizeof(char));
 	
-		// reset the number of outbound connections to 0
+		// reset the number of outbound connections to 0 before moving onto next room
 		con = 0;
 		
 		// reset the file pointer to the beginning of the file
@@ -420,13 +427,12 @@ int main (void)
 	closedir(dirToCheck);
 	
 	
-	// free memory for each gameRoom struct, filePath and file_descriptor
+	// free dynamic memory
 	for (i = 0; i < 7; i++)
 	{
 		free(gameRoom[i]);
 		free(filePath[i]);
 	}
-
 
 	//free(wrRoomName);
 	//free(wrTempName1);
@@ -434,6 +440,7 @@ int main (void)
 	//free(wrTypeName1);	
 	//free(wrTypeName2);	
 	//free(temp);
+
 
 	return 0;
 }
