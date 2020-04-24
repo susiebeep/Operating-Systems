@@ -329,24 +329,6 @@ int main (void)
 		addRandomConnection(gameRoom);
 	}
 
-	int con = 0;
-	int j;
-	struct room* temp;
-	char* tempName;
-	for (i = 0; i < 7; i++)
-	{
-		printf("ROOM NAME: %s\n", gameRoom[i]->name);
-		con = gameRoom[i]->numOutboundConnections;
-		for (j = 0; j < con; j++)
-		{
-			temp = gameRoom[i]->outBoundConnections[j];
-			tempName = temp->name;
-			printf("CONNECTION %d : %s\n", (j + 1), tempName);
-		}
-		printf("ROOM TYPE: %s\n", gameRoom[i]->type);
-	}
-
-
 	// create directory and append the name with the process ID
 	int pid = getpid();
 	
@@ -373,29 +355,70 @@ int main (void)
 	}
 
 
-	// allocate dynamic memory for 7 file descriptors and open the files for reading and writing,
-	// creating them if they don't exist, and if they do exist write over their contents
+	// declare 7 file descriptors and temporary variables to be used when writing the 
+	// 7 gameRoom structs to the 7 files
 	
 	int file_descriptor[7];
+	int con = 0;	//track the number of outbound connections for each room
+	int j;
+	struct room* temp;
+	char* wrRoomName;
+	char* wrTempName1;
+	char* wrTempName2;
+	char* wrTypeName1;
+	char* wrTypeName2;
 	
+	temp = malloc(1024*sizeof(struct room));
+	wrRoomName = malloc(1024*sizeof(char));
+	wrTempName1 = malloc(1024*sizeof(char));
+	wrTempName2 = malloc(1024*sizeof(char));
+	wrTypeName1 = malloc(1024*sizeof(char));
+	wrTypeName2 = malloc(1024*sizeof(char));
+
 	for (i = 0; i < 7; i++)
 	{
+		// open each file for reading and writing, creating them if they don't exist,
+		// and overwriting them if they do exist
 		file_descriptor[i] = open(filePath[i], O_RDWR | O_CREAT | O_TRUNC, 0600);
 	
-		// display error and exit program if unable to open file
+		// display error and exit program if unable to open file and exit
 		if (file_descriptor[i] == -1)
 		{	
 			printf("Could not open file: room%d", i);
 			exit(1);
 		}
+		// write the name of the room to the file
+			
+		sprintf(wrRoomName, "ROOM NAME: %s\n", gameRoom[i]->name);
+		write(file_descriptor[i], wrRoomName, strlen(wrRoomName)*sizeof(char));
+		con = gameRoom[i]->numOutboundConnections;
+
+		// write each room's outbound connections to the file
+		for (j = 0; j < con; j++)
+		{
+			temp = gameRoom[i]->outBoundConnections[j];
+			wrTempName1 = temp->name;
+			sprintf(wrTempName2, "CONNECTION %d : %s\n", (j + 1), wrTempName1);
+			write(file_descriptor[i], wrTempName2, strlen(wrTempName2)*sizeof(char));
+		}
+		
+		// write the room's type to the file
+		wrTypeName1 = gameRoom[i]->type;
+		sprintf(wrTypeName2, "ROOM TYPE: %s\n", wrTypeName1);
+		write(file_descriptor[i], wrTypeName2, strlen(wrTypeName2)*sizeof(char));
+	
+		// reset the number of outbound connections to 0
+		con = 0;
+		
+		// reset the file pointer to the beginning of the file
+		lseek(file_descriptor[i], 0, SEEK_SET);
+		
 	}	
 
 	
 	// close the directory
 	closedir(dirToCheck);
 	
-	// write the gameRoom structs to each of the 7 files
-
 	
 	// free memory for each gameRoom struct, filePath and file_descriptor
 	for (i = 0; i < 7; i++)
@@ -403,6 +426,14 @@ int main (void)
 		free(gameRoom[i]);
 		free(filePath[i]);
 	}
+
+
+	//free(wrRoomName);
+	//free(wrTempName1);
+	//free(wrTempName2);
+	//free(wrTypeName1);	
+	//free(wrTypeName2);	
+	//free(temp);
 
 	return 0;
 }
