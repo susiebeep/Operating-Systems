@@ -365,20 +365,19 @@ int main (void)
 	// gameRoom structs to the files
 	
 	int file_descriptor[7];
-	int con = 0;	//track the number of outbound connections for each room
+	int con = 0;		//track the number of outbound connections for each room
 	int j;
-	struct room* temp;
-	char* wrRoomName;
-	char* wrTempName1;
-	char* wrTempName2;
-	char* wrTypeName1;
-	char* wrTypeName2;
-	
-	temp = malloc(1024*sizeof(struct room));
+	struct room* temp; 	//pointer to a room's outbound connection
+	char* wrRoomName;	//used to write room's name to file
+	char* wrTempName1;	//pointer to a name of room's outbound connection	
+	char* wrTempName2;	//used to write connecting room names to file
+	char* wrTypeName1;	//pointer to a type of room's outbound connection
+	char* wrTypeName2;	//used to write room's type to file
+
+	// allocate dynamic memory to 3 of the temporary variables (as they are not pointing to
+	// any existing memory)
 	wrRoomName = malloc(1024*sizeof(char));
-	wrTempName1 = malloc(1024*sizeof(char));
 	wrTempName2 = malloc(1024*sizeof(char));
-	wrTypeName1 = malloc(1024*sizeof(char));
 	wrTypeName2 = malloc(1024*sizeof(char));
 
 	// WRITE EACH ROOM TO A FILE
@@ -418,8 +417,7 @@ int main (void)
 		con = 0;
 		
 		// reset the file pointer to the beginning of the file
-		lseek(file_descriptor[i], 0, SEEK_SET);
-		
+		lseek(file_descriptor[i], 0, SEEK_SET);		
 	}	
 
 	
@@ -434,13 +432,9 @@ int main (void)
 		free(filePath[i]);
 	}
 
-	//free(wrRoomName);
-	//free(wrTempName1);
-	//free(wrTempName2);
-	//free(wrTypeName1);	
-	//free(wrTypeName2);	
-	//free(temp);
-
+	free(wrRoomName);
+	free(wrTempName2);
+	free(wrTypeName2);	
 
 	return 0;
 }
