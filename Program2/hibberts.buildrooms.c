@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+//global declaration of room struct
 struct room
 {
 	char* name;	
@@ -22,6 +23,24 @@ struct room
 	int numOutboundConnections;	// to keep track of number of outbound connections to other rooms
 	struct room* outBoundConnections[6];	//array to store room's outbound connections (at least 3, and at most 6)
 };
+
+
+/* ********************************************************************************** 
+ ** Description: Initializes and allocated dynamic memory for an array of room struct
+		 pointers
+ ** Input(s):	 Pointer to a room struct array
+ ** Output(s):   No output
+ ** Returns:	 No return
+ ** *******************************************************************************/
+void init(struct room** roomArr)
+{
+	// allocate dynamic memory for each room struct in array
+	int i;
+	for (i = 0; i < 7; i++)
+	{
+		roomArr[i] = malloc(sizeof(struct room));
+	}
+}
 
 
 /* ********************************************************************************** 
@@ -199,16 +218,10 @@ int main (void)
 	// seed the random number generator using the current time
 	srand(time(0));
 
-	// create an array of 7 room structs called gameRoom
+	// create an array of 7 room structs called gameRoom and initialize each one
 	struct room* gameRoom[7];
-
-	// allocate dynamic memory for each gameRoom struct
-	int i;
-	for (i = 0; i < 7; i++)
-	{
-		gameRoom[i] = malloc(sizeof(struct room));
-	}
-
+	init(gameRoom);
+		
 
 	// ROOM NAMES: create 10 char arrays which are 9 characters each (8 characters plus 1 for null terminator)
 	// to represent the room names to be randomly assigned to each of the rooms
@@ -225,6 +238,7 @@ int main (void)
 	// int array to hold boolean values to determine whether a room name has been assigned or not,
 	// initialized to 0 (i.e. false, not assigned)
 	int boolArr[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	int i;
 
 	for (i = 0; i < 7; i++)
 	{
