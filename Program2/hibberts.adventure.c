@@ -1,6 +1,6 @@
 
 /* ********************************************************************************** 
- ** Program Name:   Program 2 - Adventure
+ ** Program Name:   Program 2 - Adventure (hibberts.adventure.c)
  ** Author:         Susan Hibbert
  ** Date:           27th April 2020  			      
  ** Description:    This program provides an interface for playing the game using the
@@ -34,7 +34,7 @@ struct room
 
 /* ********************************************************************************** 
  ** Description: Initializes the room structs, which represent the game rooms
- ** Input(s): Pointer to a room struct array/pointer 	
+ ** Input(s): 	 Pointer to a room struct array/pointer 	
  ** Output(s): 	
  ** Returns: 	 
  ** *******************************************************************************/
