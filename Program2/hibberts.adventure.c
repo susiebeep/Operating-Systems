@@ -9,10 +9,11 @@
 		    The player will begin in the starting room and will navigate
 		    through each room's outbound connections until they reach the end
 		    room. When they reach the end room they automatically win the game
-		    and the path that they took through the rooms will be displayed.
+		    and the path that they took through the rooms will be displayed 
+		    along with the number of steps they took.
 		    
-		    During the game, the player can also enter a command that returns
-		    the current time. 
+		    During the game, the player can also enter the command 'time' 
+		    that returns the current time. 
  ** *******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
+#include <pthread.h>
 
 
 // global struct room declaration
@@ -32,6 +35,13 @@ struct room
 	int numOutboundConnections; 
 	struct room* outBoundConnections[6];
 };
+
+// declare a mutex
+pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// declare a second thread which will be used to return the current time 
+pthread_t myThreadID;
+
 
 /* ********************************************************************************** 
  ** Description: Initializes the room structs, which represent the game rooms, and
@@ -54,7 +64,7 @@ void init(struct room** roomArr)
 	
 
 	// set the number of each room's outbound connections to 0 and set all 6
-	// pointers to each room's outbound connections to null
+	// pointers to the outbound connections to null
 	int j;
 	for (i = 0; i < 7; i++)
 	{
@@ -98,65 +108,156 @@ void printLocation(struct room* roomPtr)
 
 
 /* ********************************************************************************** 
+ ** Description: Writes the current time of day into a file called "currentTime.txt"
+		 in the current directory
+ ** Input(s): 	 Void pointer	
+ ** Output(s): 	 Writes the current time of day to a file called "currentTime.txt"
+ ** Returns:	 Returns a void pointer
+ ** *******************************************************************************/
+void* getTime(void* params)
+{
+	// straight after the second thread is created in main it tries to lock the
+	// mutex which causes it to become blocked
+	pthread_mutex_lock(&myMutex);		
+	
+	//when main unlocks mutex, the second thread is unblocked and can start
+	// executing
+	time_t currTime;
+	struct tm* timeStats;
+	char tempTime[64];
+	time(&currTime);
+
+	int file_descriptor;
+	char* file_path = malloc(128*(sizeof(char)));	// allocate dynamic memory
+	sprintf(file_path, "currentTime.txt");		// set the file path
+
+	// open the file for reading and writing, creating it if it doesn't exist
+	// and overwriting its contents if it does exist
+	file_descriptor = open(file_path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+
+	// get the current time and format it as specified
+	timeStats = localtime(&currTime);
+	strftime(tempTime, sizeof(tempTime),"%I:%M%P, %A, %B %d, %Y", timeStats);
+	
+	// write the current time to the file
+	write(file_descriptor, tempTime, strlen(tempTime)*sizeof(char));
+	
+	//reset the file pointer to the beginning of the file
+	lseek(file_descriptor, 0, SEEK_SET);
+
+	// free dynamic memory
+	free(file_path);
+
+	// unlock the mutex for use by main thread
+	pthread_mutex_unlock(&myMutex);
+}
+
+
+
+/* ********************************************************************************** 
  ** Description: Displays the player's current room location and list of possible room
 		 connections (by calling printLocation) and gets the user's choice of
 		 connecting room. Displays error message if user does not enter one of 
-		 the connecting room names from the list
+		 the connecting room names from the list. Displays the current time
+		 when the player enters the 'time' command
  ** Input(s): 	 Pointer to a room struct
  ** Output(s): 	 Prompts user for their choice of room name. Displays error message and
-		 re-prompts user if they do not enter a valid connecting room name
+		 re-prompts user if they do not enter a valid connecting room name.
+		 Displays current time on screen if user types 'time' in prompt
  ** Returns: 	 Returns an integer which represents a valid room index of the current
 		 room's outbound connection array, where the player wants to move to
  ** *******************************************************************************/
 int getMove(struct room* roomPtr)
 {
 	char* nameEntered = NULL; 	// points to a buffer allocated by getline() to hold input string
-	int numCharsEntered = 0;	// how many chars were entered by user
+	int numCharsEntered = 0;	// hold the number of chars entered by user
 	size_t bufferSize = 0;		// holds how large the allocated buffer is
 
 	int i;
 	int strLength;
+	FILE *filePtr;			// points to currentTime.txt file in current directory
+	char line1[64];			// stores lines from currentTime.txt
 
-	// get user's input for their choice of room name
+	// display current location and list of possible connections
 	printLocation(roomPtr);	
-	printf("WHERE TO? >");	
-	numCharsEntered = getline(&nameEntered, &bufferSize, stdin);
-	printf("\n");
-
-	for (i = 0; i < roomPtr->numOutboundConnections; i++)
+	
+	// get user's input for their choice of room name (will keep prompting user for valid input)
+	while(1)
 	{
-		strLength = strlen(roomPtr->outBoundConnections[i]->name);
-
-		// if the name the user entered matches the name of one of the connecting rooms,
-		// return the index of that room
-		//
-		// N.B. when the user enters a room name then presses the enter key, a newline
-		// character is added to the nameEntered variable, so we need to ignore this
-		// in our strncmp function (otherwise it will fail)-  we compare the two room
-		// names up to the size of the connecting room's name
-		if (strncmp(roomPtr->outBoundConnections[i]->name, nameEntered, strLength) == 0)
+		printf("WHERE TO? >");	
+		numCharsEntered = getline(&nameEntered, &bufferSize, stdin);
+		printf("\n");
+		
+		// check if what the user entered matches any of the names of the connecting rooms
+		for (i = 0; i < roomPtr->numOutboundConnections; i++)
 		{
-			return i;
-		}	
-	} 
+			strLength = strlen(roomPtr->outBoundConnections[i]->name);
 
-	// if make it here, user did not enter a valid room name - inform them that they
-	// did not enter a valid name and keep prompting the user until they enter a
-	// valid connecting room name	
-	printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n");
-	printf("\n");
-	getMove(roomPtr);
+			// if the name the user entered matches the name of one of the connecting rooms,
+			// return the index of that room
+			//
+			// N.B. when the user enters a room name then presses the enter key, a newline
+			// character is added to the nameEntered variable, so we need to ignore this
+			// in our strncmp function (otherwise it will fail)-  we compare the nameEntered
+			// variable up to the size of the connecting room's name, ignoring the \n at the
+			// end
+			if (strncmp(roomPtr->outBoundConnections[i]->name, nameEntered, strLength) == 0)
+			{
+				return i;
+			}	
+		}
+
+		// if the user entered 'time' at the prompt, the main thread unlocks the mutex and the 
+		// second thread becomes unblocked and executes the getTime function
+		if (strcmp(nameEntered, "time\n") == 0)
+		{
+			// unlock mutex to trigger second thread and getTime function
+			pthread_mutex_unlock(&myMutex);
+
+			// block main thread while second thread runs
+			pthread_join(myThreadID, NULL);
+			
+			// relock mutex in main thread when it starts running again
+			pthread_mutex_lock(&myMutex);
+
+			// re-create the second thread
+			int resultInt1;
+			resultInt1 = pthread_create(&myThreadID, NULL, &getTime, NULL);	
+		
+			// read from currentTime.txt and display time on screen
+			filePtr = fopen("currentTime.txt", "r");	// open the file
+	
+			//read the contents of the file
+			while (fgets(line1, sizeof(line1), filePtr) != NULL)
+			{
+				printf("%s", line1);
+			}
+		
+			printf("\n");
+			printf("\n");
+			
+		}
+		if (strcmp(nameEntered, "time\n") != 0)
+ 		{
+			// if make it here, user did not enter a valid room name or 'time' command - 
+			// inform them that they did not enter a valid name and re-prompt the user
+			// to enter a valid connecting room name	
+			printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n");
+			printf("\n");
+			printLocation(roomPtr);	
+		}
+	}
 }
 
 
 /* ********************************************************************************** 
- ** Description: Simulates the player's movement in the game, from one room into a
+ ** Description: Simulates the player's movement in the game from one room into a
 		 connecting room. Updates player's current location and adds one to
 		 the number of steps they have taken, and also adds the name of the
-		 previous room to an array storing the path the user is taking
- ** Input(s): 	 Integer value (room index to move to), integer value (number of steps 
-		 currently taken), pointer to a pointer to a room struct (i.e. the 
-		 address of a room struct pointer), pointer to a string array
+		 previous room to an array storing the path the user has taken
+ ** Input(s): 	 Integer value (room index to move to), pointer to an integer (number
+		 of steps currently taken), pointer to a pointer to a room struct
+		 (i.e. the address of a room struct pointer), pointer to a string array
 		 (stores current path taken by the player)
  ** Output(s): 	 No output
  ** Returns: 	 No return value
@@ -176,7 +277,8 @@ void makeMove(int index, int* steps, struct room** roomPtr, char** nameArr)
 	{
 		nameArr[*steps] = (*roomPtr)->name;
 	}
-	//point to the connecting room, chosen by the user
+
+	// point to the connecting room, chosen by the user
 	*roomPtr = (*roomPtr)->outBoundConnections[index];
 
 	// increase steps taken
@@ -187,8 +289,8 @@ void makeMove(int index, int* steps, struct room** roomPtr, char** nameArr)
 /* ********************************************************************************** 
  ** Description: This is called when the player has reached the end room and completed
 		 the game
- ** Input(s): 	 Integer value (the number of steps taken by the user) and a pointer
-	      	 to a string array (names of the rooms the player visited in 
+ ** Input(s): 	 Pointer to an integer (the number of steps taken by the user) and a 
+		 pointer to a string array (names of the rooms the player visited in 
 		 the game)	
  ** Output(s): 	 Congratulatory message is displayed on the screen, followed by the
 		 number of steps taken by the player and the route they took through
@@ -212,8 +314,8 @@ void gameOver(int* steps, char** nameArr)
 
 
 /* ********************************************************************************** 
- ** Description: Returns the name of the most recently generated rooms directory for
-		 use in the game
+ ** Description: Returns the name of the most recently generated rooms subdirectory
+		 for use in the game
  ** Input(s): 	 No input
  ** Output(s): 	 No output
  ** Returns: 	 Returns a char pointer, representing the name of the most recently
@@ -221,11 +323,10 @@ void gameOver(int* steps, char** nameArr)
  ** *******************************************************************************/
 char* recentDir()
 {
-
 	// resource used: 2.4 Manipulating Directories, from Block 2
 	int newestDirTime = -1; 			// modified timestamp of most recent subdirectory
 	char targetDirPrefix[64] = "hibberts.rooms."; 	// prefix of the rooms directory
-	char *newestDirName;	 			// stores the name of the most recent rooms directory
+	char *newestDirName;	 			// stores the name of the most recent rooms subdirectory
 	newestDirName = malloc(sizeof(char)*1024);
 	memset(newestDirName, '\0', sizeof(newestDirName));
 
@@ -243,7 +344,7 @@ char* recentDir()
 			{
 				stat(fileInDir->d_name, &dirAttributes);		// get attributes of entry
 			
-				if ((int)dirAttributes.st_mtime > newestDirTime) 	// if this time is bigger/more recent
+				if ((int)dirAttributes.st_mtime > newestDirTime) 	// if this time is more recent
 				{
 					newestDirTime = (int)dirAttributes.st_mtime;
 					memset(newestDirName, '\0', sizeof(newestDirName));
@@ -259,7 +360,7 @@ char* recentDir()
 }
 /* ********************************************************************************** 
  ** Description: Main function - reads the data from the room files in the most
-		 recently created directory into room structs for use in the game.
+		 recently created subdirectory into room structs for use in the game.
 		 Displays the interface for the game.
  ** Input(s): 	 No input
  ** Output(s):	 Displays game stats to the user (location, possible room connections). 
@@ -268,7 +369,14 @@ char* recentDir()
  ** Returns:	 Sets the exit status code to 0
  ** *******************************************************************************/
 int main(void)
-{
+{	
+	// lock the mutex	
+	pthread_mutex_lock(&myMutex);
+
+	// create the second thread - its first action is to try and gain control of
+	// the mutex by calling lock (in getTime function) but blocks itself instead
+	int resultInt = pthread_create(&myThreadID, NULL, &getTime, NULL);	
+
 	// declare an array of 7 room structs called gameRoom which will be populated
 	// with the data in the 7 room files
 	struct room* gameRoom[7];
@@ -318,11 +426,9 @@ int main(void)
 		}
 		
 
-		// read file contents until reached the end of the file	(i.e. when feof returns 0)
+		// read file contents until reached the end of the file
 		while (fgets(line, sizeof(line), file_descriptor[i]) != NULL)
-		{
-			//printf(line);
-	
+		{	
 			// if reading in the line specifying the room's name	
 			if (strstr(line, "ROOM NAME: ") != NULL)
 			{	
@@ -370,7 +476,7 @@ int main(void)
 		}
 		
 
-		// read file contents until reached the end of the file	(i.e. when feof returns 0)
+		// read file contents until reached the end of the file
 		while (fgets(line, sizeof(line), file_descriptor[i]) != NULL)
 		{
 			j = 0;
@@ -403,21 +509,6 @@ int main(void)
 	}
 
 
-	// print out the structs
-	for (i = 0; i < 7; i++)
-	{
-		printf("Room name: %s\n", gameRoom[i]->name);
-		printf("Room type: %s\n", gameRoom[i]->type);
-		for (j = 0; j < 6; j++)
-		{
-			if (gameRoom[i]->outBoundConnections[j] != NULL)
-			{
-				printf("connection %d: %s\n", j, gameRoom[i]->outBoundConnections[j]->name);
-			}
-		}
-	}
-
-
 	// create struct room pointer to keep track of the player's location and direct it to start in the
 	// start room
 	struct room* gamePtr;
@@ -435,11 +526,12 @@ int main(void)
 		routeArr[i] = malloc(sizeof(char));
 	}
 	
-	// display the player's starting location and ask the player what room they want to move to
+	// display the player's starting location and ask the player what room they want to move to - a room
+	// index is returned
 	int validRoomIndex = 0;
 	validRoomIndex = getMove(gamePtr);
 	
-	//pass the index to the makeMove function and the address of the gamePtr to move the player into this room
+	//pass the room index to the makeMove function and the address of the gamePtr to move the player into this room
 	makeMove(validRoomIndex, &stepsTaken, &gamePtr, routeArr);
 	
 	
@@ -451,8 +543,8 @@ int main(void)
 		makeMove(validRoomIndex, &stepsTaken, &gamePtr, routeArr);
 	}
 	
-	// when the user has reached the end room, the game displays a congratulatory message, along
-	// with the path the user took to get there and the number of steps it took them
+	// when the user reaches the end room, the game displays a congratulatory message, along
+	// with the path the user took to get there and the number of steps they took
 	gameOver(&stepsTaken, routeArr);	
 
 	//append the end room name to the list of rooms visited	
