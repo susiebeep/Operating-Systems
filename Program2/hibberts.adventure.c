@@ -170,6 +170,12 @@ void makeMove(int index, int* steps, struct room** roomPtr, char** nameArr)
 		nameArr[*steps] = (*roomPtr)->name;
 	}
 
+	// if the type is the start room, check if player is visiting it at a later
+	// point in the game
+	if ((strcmp((*roomPtr)->type, "START_ROOM") == 0) && *steps > 0)
+	{
+		nameArr[*steps] = (*roomPtr)->name;
+	}
 	//point to the connecting room, chosen by the user
 	*roomPtr = (*roomPtr)->outBoundConnections[index];
 
