@@ -29,19 +29,21 @@ struct room
 {
 	char* name;
 	char* type;
+	int numOutboundConnections; 
 	struct room* outBoundConnections[6];
 };
 
 /* ********************************************************************************** 
- ** Description: Initializes the room structs, which represent the game rooms
- ** Input(s): 	 Pointer to a room struct array/pointer 	
- ** Output(s): 	
- ** Returns: 	 
+ ** Description: Initializes the room structs, which represent the game rooms, and
+		 their member variables
+ ** Input(s): 	 Pointer to a room struct array
+ ** Output(s): 	 No output
+ ** Returns: 	 No return value
  ** *******************************************************************************/
 void init(struct room** roomArr)
 {	
-	// dynamically allocate memory for each gameRoom struct and its name and type
-	// member variables
+	// dynamically allocate memory for each gameRoom struct and its member
+	// variables name and type
 	int i;
 	for (i = 0; i < 7; i++)
 	{
@@ -51,28 +53,157 @@ void init(struct room** roomArr)
 	}
 	
 
-	// set all 6 pointers to a room's outbound connections to null	
+	// set the number of each room's outbound connections to 0 and set all 6
+	// pointers to each room's outbound connections to null
 	int j;
 	for (i = 0; i < 7; i++)
 	{
 		for (j = 0; j < 6; j ++)
 		{
+			roomArr[i]->numOutboundConnections = 0; 
 			roomArr[i]->outBoundConnections[j] = NULL;
 		}
 	}
 }
 
+
 /* ********************************************************************************** 
- ** Description: 
- ** Input(s): 	 No input
- ** Output(s): 	 The player's current location and a list of possible connections that
-		 can be followed
- ** Returns: 	 
+ ** Description: Displays the player's current room location in the game along with
+		 the current room's connecting rooms
+ ** Input(s): 	 Pointer to a room struct
+ ** Output(s): 	 The player's current location and a list of possible room connections
+		 is displayed on the screen
+ ** Returns: 	 No return value
  ** *******************************************************************************/
-void interface()
+void printLocation(struct room* roomPtr)
 {
+	printf("CURRENT LOCATION: %s\n", roomPtr->name);	
+	printf("POSSIBLE CONNECTIONS: ");
+	int i;
 	
+	for (i = 0; i < roomPtr->numOutboundConnections; i++)
+	{
+		// if printing the last room connection, add a full stop and start a new line
+		if (i == (roomPtr->numOutboundConnections - 1))	
+		{
+			printf("%s.", roomPtr->outBoundConnections[i]->name);
+			printf("\n");
+		}
+		else
+		{
+			printf("%s, ", roomPtr->outBoundConnections[i]->name);
+		}
+	} 
 }
+
+
+/* ********************************************************************************** 
+ ** Description: Displays the player's current room location and list of possible room
+		 connections (by calling printLocation) and gets the user's choice of
+		 connecting room. Displays error message if user does not enter one of 
+		 the connecting room names from the list
+ ** Input(s): 	 Pointer to a room struct
+ ** Output(s): 	 Prompts user for their choice of room name. Displays error message and
+		 re-prompts user if they do not enter a valid connecting room name
+ ** Returns: 	 Returns an integer which represents a valid room index of the current
+		 room's outbound connection array, where the player wants to move to
+ ** *******************************************************************************/
+int getMove(struct room* roomPtr)
+{
+	char* nameEntered = NULL; 	// points to a buffer allocated by getline() to hold input string
+	int numCharsEntered = 0;	// how many chars were entered by user
+	size_t bufferSize = 0;		// holds how large the allocated buffer is
+
+	int i;
+	int strLength;
+
+	// get user's input for their choice of room name
+	printLocation(roomPtr);	
+	printf("WHERE TO? >");	
+	numCharsEntered = getline(&nameEntered, &bufferSize, stdin);
+	printf("\n");
+
+	for (i = 0; i < roomPtr->numOutboundConnections; i++)
+	{
+		strLength = strlen(roomPtr->outBoundConnections[i]->name);
+
+		// if the name the user entered matches the name of one of the connecting rooms,
+		// return the index of that room
+		//
+		// N.B. when the user enters a room name then presses the enter key, a newline
+		// character is added to the nameEntered variable, so we need to ignore this
+		// in our strncmp function (otherwise it will fail)-  we compare the two room
+		// names up to the size of the connecting room's name
+		if (strncmp(roomPtr->outBoundConnections[i]->name, nameEntered, strLength) == 0)
+		{
+			return i;
+		}	
+	} 
+
+	// if make it here, user did not enter a valid room name - inform them that they
+	// did not enter a valid name and keep prompting the user until they enter a
+	// valid connecting room name	
+	printf("HUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n");
+	printf("\n");
+	getMove(roomPtr);
+}
+
+
+/* ********************************************************************************** 
+ ** Description: Simulates the player's movement in the game, from one room into a
+		 connecting room. Updates player's current location and adds one to
+		 the number of steps they have taken, and also adds the name of the
+		 previous room to an array storing the path the user is taking
+ ** Input(s): 	 Integer value (room index to move to), integer value (number of steps 
+		 currently taken), pointer to a pointer to a room struct (i.e. the 
+		 address of a room struct pointer), pointer to a string array
+		 (stores current path taken by the player)
+ ** Output(s): 	 No output
+ ** Returns: 	 No return value
+ ** *******************************************************************************/
+void makeMove(int index, int* steps, struct room** roomPtr, char** nameArr)
+{
+	// store path taken by user (do not store start room name) - store name of
+	// current room the user is in in nameArr
+	if (strcmp((*roomPtr)->type, "START_ROOM") != 0)
+	{
+		nameArr[*steps] = (*roomPtr)->name;
+	}
+
+	//point to the connecting room, chosen by the user
+	*roomPtr = (*roomPtr)->outBoundConnections[index];
+
+	// increase steps taken
+	*steps = *steps + 1;		
+}
+
+
+/* ********************************************************************************** 
+ ** Description: This is called when the player has reached the end room and completed
+		 the game
+ ** Input(s): 	 Integer value (the number of steps taken by the user) and a pointer
+	      	 to a string array (names of the rooms the player visited in 
+		 the game)	
+ ** Output(s): 	 Congratulatory message is displayed on the screen, followed by the
+		 number of steps taken by the player and the route they took through
+		 the game
+ ** Returns:	 No return value
+ ** *******************************************************************************/
+void gameOver(int* steps, char** nameArr)
+{
+	printf("YOU HAVE FOUND THE END ROOM! CONGRATULATIONS!\n");
+	
+	// print number of steps taken
+	printf("YOU TOOK %d STEPS. YOUR PATH TO VICTORY WAS:", *steps);
+	
+	// display path taken by user
+	int i;
+	for (i = 0; i < *steps; i++)
+	{
+		printf("%s\n", nameArr[i]);
+	}	
+}
+
 
 /* ********************************************************************************** 
  ** Description: Returns the name of the most recently generated rooms directory for
@@ -121,10 +252,14 @@ char* recentDir()
 
 }
 /* ********************************************************************************** 
- ** Description: Main function
+ ** Description: Main function - reads the data from the room files in the most
+		 recently created directory into room structs for use in the game.
+		 Displays the interface for the game.
  ** Input(s): 	 No input
- ** Output(s):
- ** Returns:
+ ** Output(s):	 Displays game stats to the user (location, possible room connections). 
+		 Displays prompts to the user for their room choices as they play the
+		 game. Displays final message to the user when they complete the game.
+ ** Returns:	 Sets the exit status code to 0
  ** *******************************************************************************/
 int main(void)
 {
@@ -254,6 +389,9 @@ int main(void)
 		//close the file stream
 		fclose(file_descriptor[i]);
 		
+		// store the number of outbound connections for the room
+		gameRoom[i]-> numOutboundConnections = conIndex;		
+
 		// reset the index of the room connection array
 		conIndex = 0;
 	}
@@ -272,7 +410,49 @@ int main(void)
 			}
 		}
 	}
+
+
+	// create struct room pointer to keep track of the player's location and direct it to start in the
+	// start room
+	struct room* gamePtr;
+	gamePtr = gameRoom[startRoomIndex];
+
+	// START THE GAME:
+	// initialize the number of steps taken to 0
+	int stepsTaken = 0;
 	
+	// create a array of strings to hold the names of the rooms visited by the user and dynamically
+	// allocate memory to each string
+	char** routeArr = malloc(1024*sizeof(char*));
+	for (i = 0; i < 1024; i++)
+	{
+		routeArr[i] = malloc(sizeof(char));
+	}
+	
+	// display the player's starting location and ask the player what room they want to move to
+	int validRoomIndex = 0;
+	validRoomIndex = getMove(gamePtr);
+	
+	//pass the index to the makeMove function and the address of the gamePtr to move the player into this room
+	makeMove(validRoomIndex, &stepsTaken, &gamePtr, routeArr);
+	
+	
+	// while user has not visited the end room, continue to ask them for their next move and display
+	// their current location and a list of possible room connections they can move to
+	while (strcmp(gamePtr->type, "END_ROOM") != 0)
+	{
+		validRoomIndex = getMove(gamePtr);
+		makeMove(validRoomIndex, &stepsTaken, &gamePtr, routeArr);
+	}
+	
+	// when the user has reached the end room, the game displays a congratulatory message, along
+	// with the path the user took to get there and the number of steps it took them
+	gameOver(&stepsTaken, routeArr);	
+
+	//append the end room name to the list of rooms visited	
+	printf("%s\n", gamePtr->name);
+
+
 	// free any dynamically allocated memory	
 	for (i = 0; i < 7; i++)
 	{
@@ -281,5 +461,7 @@ int main(void)
 	}
 	
 	free(shineyDir);	
-	return 0;
+
+	// set exit status code to 0
+	exit(0);
 }
