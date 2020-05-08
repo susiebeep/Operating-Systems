@@ -116,24 +116,31 @@ int main(void)
 		}
 
 		// break brings you to the outer while loop
-		//printf("valid command entered\n");
 
-		if (lineEntered == "status")
+		if (strcmp(lineEntered, "status\n") == 0)
 		{
+			// prints out the exit status or the terminating signal of the last foreground process
+			system("exitStatus=$(echo $?);echo exit value $exitStatus"); 
 		}
 
 		// if cd command entered without arguments
-		else if (lineEntered == "cd")
+		else if (strcmp(lineEntered, "cd\n") == 0)
 		{
+			// change to home directory
+			system("cd ~");
 		}
 
-		else if (lineEntered == "exit")
+		else if (strcmp(lineEntered, "exit\n") == 0)
 		{
+			// kill all processes in the same process group
+			execlp("kill", "kill", "-9", "0", ">", "/dev/null", NULL);
+			//return 0;
 		}
 
 		// all other commands
 		else
 		{
+			system(lineEntered);
 		}
 	}	
 
