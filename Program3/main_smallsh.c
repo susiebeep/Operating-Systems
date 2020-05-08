@@ -44,7 +44,7 @@ void catchSIGTSTP(int sigNo)
  ** Output(s): 	 
  ** Returns: 	 
  ** *******************************************************************************/
-int main(void)
+int main(int argc, char* argv[])
 {
 	// SET UP SIGNAL HANDLERS 
 
@@ -143,5 +143,5 @@ int main(void)
 			system(lineEntered);
 		}
 	}	
-
+	return 0;
 }
