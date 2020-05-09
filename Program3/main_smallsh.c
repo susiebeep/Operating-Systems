@@ -102,6 +102,13 @@ int main(int argc, char* argv[])
 				continue;
 			}
 
+			// if user entered more than 512 arguments, reprompt user
+			else if (argc >= 512)
+			{
+				printf("Maximum number of arguments 512");
+				fflush(stdout);		// flush output buffers after printing
+				continue;
+			}
 			// if user entered a comment (line beginning with #), ignore and reprompt user for another command
 			else if (lineEntered[0] == '#')
 			{
@@ -123,11 +130,36 @@ int main(int argc, char* argv[])
 			system("exitStatus=$(echo $?);echo exit value $exitStatus"); 
 		}
 
-		// if cd command entered without arguments
-		else if (strcmp(lineEntered, "cd\n") == 0)
+		// if cd command entered
+		else if (strstr(lineEntered, "cd") != NULL)
 		{
-			// change to home directory
-			system("cd ~");
+			// change to directory specified in HOME environment if cd entered with no arguments
+			if (strcmp(lineEntered, "cd\n") == 0)
+			{
+				chdir(getenv("HOME"));
+			}
+			// change to the directory specified in lineEntered string
+			else
+			{
+				// search through lineEntered for the specified directory
+				char* newPath = strtok(lineEntered, " ");
+				while (newPath != NULL)
+				{
+					// when you find the name of the directory in the lineEntered string
+					// exit the loop
+					if (strcmp(newPath, "cd") != 0)
+					{
+						break;
+					}
+					else
+					{
+						newPath = strtok(NULL, " ");
+					}
+				}
+				printf("final: %s", newPath);
+				strchr(newPath, '\n');
+				chdir(newPath);
+			}
 		}
 
 		else if (strcmp(lineEntered, "exit\n") == 0)
