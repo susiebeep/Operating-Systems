@@ -65,13 +65,7 @@ int main(int argc, char* argv[])
 	sigaction(SIGTSTP, &SIGTSTP_action, NULL);	// register signal handler for SIGSTP
 
 
-	// sleep, but wake up to signals
-	//while(1)
-	//{
-	//	pause();
-	//}
-
-	//	GET COMMAND FROM PROMPT
+	// GET COMMAND FROM PROMPT
 
 	char* lineEntered = NULL; 	// points to a buffer allocated by getline() to hold input string
 	size_t bufferSize = 0;		// holds how large the allocated buffer is 
@@ -80,7 +74,6 @@ int main(int argc, char* argv[])
 
 	while(1)
 	{
-
 		while(1)
 		{
 			printf(":");		//colon symbol used as a prompt for each command line
@@ -115,7 +108,7 @@ int main(int argc, char* argv[])
 				continue;
 			}
 
-			// otherwise exit the inner while loop as have valid prompt
+			// otherwise exit the inner while loop as user entered valid prompt
 			else
 			{
 				break;
@@ -165,39 +158,74 @@ int main(int argc, char* argv[])
 
 		else if (strcmp(lineEntered, "exit\n") == 0)
 		{
-			// kill all processes in the same process group
+			// kill all processes with SIGKILL command (-9) in the same process group (pid == 0)
 			execlp("kill", "kill", "-9", "0", ">", "/dev/null", NULL);
-			//return 0;
 		}
 
-		// all other commands
+		// non-built in commands
 		else
 		{
+			// extract each argument entered by splitting up lineEntered, using a space
+			// as a delimiter
+			char* argPtr = strtok(lineEntered, " ");
+			char* args[] = {""};
+			int i = 0;
+			int numArgs = 0;	// keep track of the number of arguments
+			while (argPtr != NULL)
+			{
+				args[i] = argPtr;
+				i++;
+				numArgs++;
+				argPtr = strtok(NULL, " ");
+			}
+
 			//when a non-built in command is received, the parent forks() off a child	
 			pid_t spawnPid = -5;
 			int childExitMethod = -5;
 			
 			spawnPid = fork();
-			// if an error occured
+			// if an error occured in forking process
 			if (spawnPid == -1)
 			{
 				perror("Unable to spawn child process\n");
+				exit(1);
 			}
 			// child process created successfully
 			else if (spawnPid == 0)
 			{
 				// IN CHILD PROCESS
-				// child process carries out input/output redirection
+				// child process carries out input/output redirection with dup2()
 			
-				// remove newline character from lineEntered before calling execlp	
-				lineEntered[strlen(lineEntered) -1] = '\0';
-				execlp(lineEntered, lineEntered, NULL);
+				// if user only entered one argument
+				if (numArgs == 1)
+				{
+					// remove newline character from argument before calling execlp	
+					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
+					execlp(args[0], args[0], NULL);
 				
-				// if non-built in command does not exist, display error message
-				// and exit
-				perror("Execlp did not work\n");
-				exit(1);
-				break;	
+					// if non-built in command does not exist, display error message
+					// and exit
+					perror("Execlp did not work\n");
+					exit(1);
+					break;	
+				}
+				// if user entered more than 1 argument
+				else
+				{
+					//remove newline character from last argument before calling execvp
+					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
+				
+					// add NULL to end of arguments array prior to passing to execvp function
+					args[numArgs] = NULL;
+						
+					execvp(args[0], args);
+				
+					// if non-built in command does not exist, display error message
+					// and exit
+					perror("Execvp did not work\n");
+					exit(1);
+					break;	
+				}
 				
 			}			
 			// IN PARENT PROCESS
