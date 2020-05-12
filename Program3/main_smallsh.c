@@ -72,6 +72,10 @@ int main(int argc, char* argv[])
 	int numCharsEntered = 0;	// hold the number of chars entered by user
 	int currChar = 0;		// tracks where we are when we print out every character
 
+	pid_t backgroundPids[128];	// stores the pids of background processes
+	int backgroundNum = 0;		// tracks number of background processes	
+	int childExitMethod = -5;	// stores the result of how a child process exited
+
 	while(1)
 	{
 		while(1)
@@ -120,7 +124,18 @@ int main(int argc, char* argv[])
 		if (strcmp(lineEntered, "status\n") == 0)
 		{
 			// prints out the exit status or the terminating signal of the last foreground process
-			system("exitStatus=$(echo $?);echo exit value $exitStatus"); 
+			if (WIFEXITED(childExitMethod) != 0)
+			{
+				printf("exit value %d\n", WEXITSTATUS(childExitMethod));		
+			}
+			else if (WIFSIGNALED(childExitMethod) != 0)
+			{	
+				printf("terminated by signal %d\n", WTERMSIG(childExitMethod));
+			}	
+			else
+			{
+				printf("exit status 0");
+			}
 		}
 
 		// if cd command entered
@@ -181,7 +196,6 @@ int main(int argc, char* argv[])
 
 			//when a non-built in command is received, the parent forks() off a child	
 			pid_t spawnPid = -5;
-			int childExitMethod = -5;
 			
 			spawnPid = fork();
 			// if an error occured in forking process
@@ -207,12 +221,13 @@ int main(int argc, char* argv[])
 					// and exit
 					perror("Execlp did not work\n");
 					exit(1);
-					break;	
+					break;
+					//set value retrieved by built-in status command to 1	
 				}
 				// if user entered more than 1 argument
 				else
 				{
-					//remove newline character from last argument before calling execvp
+					//remove newline character from last argument
 					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
 				
 					// add NULL to end of arguments array prior to passing to execvp function
@@ -225,12 +240,44 @@ int main(int argc, char* argv[])
 					perror("Execvp did not work\n");
 					exit(1);
 					break;	
+					//set value retrieved by built-in status command to 1	
 				}
 				
 			}			
 			// IN PARENT PROCESS
-			// block the parent until the child process with the specified PID terminates
+					
+			// check if child process is to be run in the background
+			if (strchr(args[numArgs - 1], '&') != NULL)
+			{
+				// print out process id of background process when it begins
+				printf("background pid is %d\n", spawnPid);
+
+				// add this pid to backgroundPid array
+				backgroundPids[backgroundNum] = spawnPid;
+				// add one to the number of background processes
+				backgroundNum++;	
+			}
+
+			// if child process is to be run in the foreground, block the parent until
+			// the child process with the specified PID terminates
 			waitpid(spawnPid, &childExitMethod, 0);
+
+			//check if any background processes have finished before prompting for new command
+			int done = 0;
+			int backgroundStatus = 0;
+			for (i = 0; i < backgroundNum; i++)
+			{
+				done  = waitpid(backgroundPids[i], &childExitMethod, WNOHANG);
+			
+				// if a background process has finished
+				if (done != 0)
+				{
+					// print out process ID and exit status of the terminated background process - if no exit status display its terminating signal
+					backgroundStatus = WEXITSTATUS(&childExitMethod);
+					printf("background pid %d is done: exit status %d\n", backgroundPids[i], backgroundStatus);
+					//remove from backgroundPid array and subtract one from number of background processes
+				}
+			}
 		}
 	}	
 	return 0;
