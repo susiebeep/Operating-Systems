@@ -156,8 +156,9 @@ int main(int argc, char* argv[])
 						newPath = strtok(NULL, " ");
 					}
 				}
-				printf("final: %s", newPath);
-				strchr(newPath, '\n');
+				
+				// remove newline character from newPath before changing directory
+				newPath[strlen(newPath) -1] = '\0';
 				chdir(newPath);
 			}
 		}
@@ -172,7 +173,36 @@ int main(int argc, char* argv[])
 		// all other commands
 		else
 		{
-			system(lineEntered);
+			//when a non-built in command is received, the parent forks() off a child	
+			pid_t spawnPid = -5;
+			int childExitMethod = -5;
+			
+			spawnPid = fork();
+			// if an error occured
+			if (spawnPid == -1)
+			{
+				perror("Unable to spawn child process\n");
+			}
+			// child process created successfully
+			else if (spawnPid == 0)
+			{
+				// IN CHILD PROCESS
+				// child process carries out input/output redirection
+			
+				// remove newline character from lineEntered before calling execlp	
+				lineEntered[strlen(lineEntered) -1] = '\0';
+				execlp(lineEntered, lineEntered, NULL);
+				
+				// if non-built in command does not exist, display error message
+				// and exit
+				perror("Execlp did not work\n");
+				exit(1);
+				break;	
+				
+			}			
+			// IN PARENT PROCESS
+			// block the parent until the child process with the specified PID terminates
+			waitpid(spawnPid, &childExitMethod, 0);
 		}
 	}	
 	return 0;
