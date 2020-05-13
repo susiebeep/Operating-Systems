@@ -85,6 +85,8 @@ int main(int argc, char* argv[])
 			// get user input
 			numCharsEntered = getline(&lineEntered, &bufferSize, stdin);
 
+			// INPUT VALIDATION
+
 			// if user did not enter any commands, reprompt user for another command
 			if (lineEntered[0] == '\n')
 			{
@@ -119,26 +121,30 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		// break brings you to the outer while loop
+		// break brings you to the outer while loop - valid input entered
 
+		// STATUS
 		if (strcmp(lineEntered, "status\n") == 0)
 		{
 			// prints out the exit status or the terminating signal of the last foreground process
 			if (WIFEXITED(childExitMethod) != 0)
 			{
 				printf("exit value %d\n", WEXITSTATUS(childExitMethod));		
+				fflush(stdout);		// flush output buffers after printing
 			}
 			else if (WIFSIGNALED(childExitMethod) != 0)
 			{	
 				printf("terminated by signal %d\n", WTERMSIG(childExitMethod));
+				fflush(stdout);		// flush output buffers after printing
 			}	
 			else
 			{
 				printf("exit status 0");
+				fflush(stdout);		// flush output buffers after printing
 			}
 		}
 
-		// if cd command entered
+		// CD
 		else if (strstr(lineEntered, "cd") != NULL)
 		{
 			// change to directory specified in HOME environment if cd entered with no arguments
@@ -171,13 +177,14 @@ int main(int argc, char* argv[])
 			}
 		}
 
+		// EXIT
 		else if (strcmp(lineEntered, "exit\n") == 0)
 		{
 			// kill all processes with SIGKILL command (-9) in the same process group (pid == 0)
 			execlp("kill", "kill", "-9", "0", ">", "/dev/null", NULL);
 		}
 
-		// non-built in commands
+		// NON BUILT-IN COMMANDS
 		else
 		{
 			// extract each argument entered by splitting up lineEntered, using a space
@@ -185,10 +192,22 @@ int main(int argc, char* argv[])
 			char* argPtr = strtok(lineEntered, " ");
 			char* args[] = {""};
 			int i = 0;
-			int numArgs = 0;	// keep track of the number of arguments
+			int numArgs = 0;			// keep track of the number of arguments
+			int mypid = getpid();			// get process ID to replace any instances of $$ in command
+			char* pid = malloc(sizeof(int));		
+			sprintf(pid, "%d", mypid);	
+
 			while (argPtr != NULL)
 			{
-				args[i] = argPtr;
+				// replace any instances of $$ in a command with process ID of shell
+				if (strstr(argPtr, "$$") != NULL)
+				{
+					args[i] = pid;
+				}
+				else
+				{
+					args[i] = argPtr;
+				}
 				i++;
 				numArgs++;
 				argPtr = strtok(NULL, " ");
@@ -220,9 +239,9 @@ int main(int argc, char* argv[])
 					// if non-built in command does not exist, display error message
 					// and exit
 					perror("Execlp did not work\n");
+					//set exit status to 1	
 					exit(1);
 					break;
-					//set value retrieved by built-in status command to 1	
 				}
 				// if user entered more than 1 argument
 				else
@@ -246,9 +265,9 @@ int main(int argc, char* argv[])
 					// if non-built in command does not exist, display error message
 					// and exit
 					perror("Execvp did not work\n");
+					//set exit status to 1
 					exit(1);
 					break;	
-					//set value retrieved by built-in status command to 1	
 				}
 				
 			}			
@@ -259,6 +278,7 @@ int main(int argc, char* argv[])
 			{
 				// print out process id of background process when it begins
 				printf("background pid is %d\n", spawnPid);
+				fflush(stdout);		// flush output buffers after printing
 
 				// add this pid to backgroundPid array
 				backgroundPids[backgroundNum] = spawnPid;
@@ -285,6 +305,7 @@ int main(int argc, char* argv[])
 					// print out process ID and exit status of the terminated background process - if no exit status display its terminating signal
 					backgroundStatus = WEXITSTATUS(&childExitMethod);
 					printf("background pid %d is done: exit status %d\n", backgroundPids[i], backgroundStatus);
+					fflush(stdout);		// flush output buffers after printing
 					//remove from backgroundPid array and subtract one from number of background processes
 				}
 			}
