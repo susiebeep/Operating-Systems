@@ -10,19 +10,11 @@
 #include <unistd.h>
 #include <signal.h>
 
-/* ********************************************************************************** 
- ** Description: Signal catcher for SIGINT (CTRL-C). When user enters CTRL-C, the
- 		 foreground command is terminated (if one is running)
- ** Input(s): 	 Integer value representing a signal number
- ** Output(s): 	 
- ** Returns: 	 No return value
- ** *******************************************************************************/
-void catchSIGINT(int sigNo)
-{
-	char* msg = "Caught SIGINT, terminating foreground command\n";
-	write(STDOUT_FILENO, msg, 48);
-	exit(0);
-}
+// global variable to check if SIGTSTP signal has been received and if the shell is
+// only running foreground process
+// 0 = Shell operating normally
+// 1 = SIGTSTP signal has been received - in foreground-only mode
+int foregroundMode = 0;
 
 
 /* ********************************************************************************** 
@@ -33,16 +25,58 @@ void catchSIGINT(int sigNo)
  ** *******************************************************************************/
 void catchSIGTSTP(int sigNo)
 {
-	char* msg = "Caught SIGTSTP, entering foreground only mode\n";
-	write(STDOUT_FILENO, msg, 47);
+	// if receiving first SIGTSTP signal
+	if (foregroundMode == 0)
+	{
+		char *msg = "\nEntering foreground-only mode (& is now ignored)\n:";
+		write(STDOUT_FILENO, msg, 51);
+		fflush(stdout);		// flush output buffers after printing
+		foregroundMode = 1;
+	}
+	// if already received one SIGTSTP signal and currently operating in foreground
+	// only mode
+	else if (foregroundMode == 1)
+	{	
+		char* msg = "\nExiting foreground-only mode\n:";
+		write(STDOUT_FILENO, msg, 32);
+		fflush(stdout);		// flush output buffers after printing
+		foregroundMode = 0;
+	}
+}
+
+
+/* ********************************************************************************** 
+ ** Description: Signal catcher for SIGINT (CTRL-C)
+ ** Input(s): 	 Integer value representing a signal number
+ ** Output(s): 	 
+ ** Returns: 	 No return value
+ ** *******************************************************************************/
+void catchSIGINT(int sigNo)
+{
+	// TO DO
+	// should not terminate shell, only fg processes and not any bg processes
+	char* msg = "Caught SIGINT\n";
+	write(STDOUT_FILENO, msg, 13);
 	exit(0);
 }
 
 /* ********************************************************************************** 
- ** Description: Main function
- ** Input(s): 	 
- ** Output(s): 	 
- ** Returns: 	 
+ ** Description: Main function - where the shell is implemented. User is prompted for
+		 command line arguments and the shell will run the commands. This 
+		 includes built-in commands (exit, cd, status) and non-built-in 
+		 commands. The shell also allows for the redirection of standard input
+		 and output and supports both foreground and background processes. It
+		 can also support comments, which are lines beginning with the #
+		 character
+ ** Input(s): 	 No input
+ ** Output(s): 	 User is prompted to enter command line arguments, the output of which
+		 are displayed on the screen. Messages are displayed when background
+		 processes are completed. Error messages are displayed on screen should
+		 any errors arise during the operation of the shell.
+		 If the shell receives a SIGSTP or SIGINT signal, appropriate messages
+		 appear on the screen informing the user of any changes to the shell's
+		 operation.
+ ** Returns: 	 Returns an exit status of 0
  ** *******************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -59,7 +93,7 @@ int main(int argc, char* argv[])
 
 	SIGTSTP_action.sa_handler = catchSIGTSTP;	// point sa_handler function pointer to catchSIGSTP function
 	sigfillset(&SIGTSTP_action.sa_mask);		// delay all signals while this mask in place
-	SIGTSTP_action.sa_flags = 0;			// do not set any flags
+	SIGTSTP_action.sa_flags = SA_RESTART;		// SA_RESTART flag restarts system calls automatically
 
 	sigaction(SIGINT, &SIGINT_action, NULL);	// register signal handler for SIGNINT
 	sigaction(SIGTSTP, &SIGTSTP_action, NULL);	// register signal handler for SIGSTP
@@ -276,14 +310,26 @@ int main(int argc, char* argv[])
 			// check if child process is to be run in the background
 			if (strchr(args[numArgs - 1], '&') != NULL)
 			{
-				// print out process id of background process when it begins
-				printf("background pid is %d\n", spawnPid);
-				fflush(stdout);		// flush output buffers after printing
+				// if no SIGTSTP signal has been received, put process in background
+				if (foregroundMode == 0)
+				{
+					// print out process id of background process when it begins
+					printf("background pid is %d\n", spawnPid);
+					fflush(stdout);		// flush output buffers after printing
 
-				// add this pid to backgroundPid array
-				backgroundPids[backgroundNum] = spawnPid;
-				// add one to the number of background processes
-				backgroundNum++;	
+					// add this pid to backgroundPid array
+					backgroundPids[backgroundNum] = spawnPid;
+					// add one to the number of background processes
+					backgroundNum++;	
+				}
+				// if SIGSTP signal has been received, in foreground-only mode
+				else
+				{
+					// run child process in the foreground, and block the parent until
+					// the child process terminates
+					waitpid(spawnPid, &childExitMethod, 0);
+				}
+					
 			}
 			else
 			{
