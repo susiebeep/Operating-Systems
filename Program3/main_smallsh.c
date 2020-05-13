@@ -228,13 +228,21 @@ int main(int argc, char* argv[])
 				else
 				{
 					//remove newline character from last argument
-					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
-				
+					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';		
+	
 					// add NULL to end of arguments array prior to passing to execvp function
 					args[numArgs] = NULL;
 						
-					execvp(args[0], args);
-				
+					// check if child process is to be run in the background
+					if (strchr(args[numArgs - 1], '&') != NULL)
+					{
+						//pass in the arguments except the ampersand
+						execlp(args[0], args[0], args[1], args[3]);
+					}			
+					else
+					{
+						execvp(args[0], args);
+					}
 					// if non-built in command does not exist, display error message
 					// and exit
 					perror("Execvp did not work\n");
@@ -257,10 +265,12 @@ int main(int argc, char* argv[])
 				// add one to the number of background processes
 				backgroundNum++;	
 			}
-
-			// if child process is to be run in the foreground, block the parent until
-			// the child process with the specified PID terminates
-			waitpid(spawnPid, &childExitMethod, 0);
+			else
+			{
+				// if child process is to be run in the foreground, block the parent until
+				// the child process with the specified PID terminates
+				waitpid(spawnPid, &childExitMethod, 0);
+			}
 
 			//check if any background processes have finished before prompting for new command
 			int done = 0;
