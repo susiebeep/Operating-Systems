@@ -68,8 +68,8 @@ void catchSIGINT(int sigNo)
 	// the parent shell process and any background processes will be directed here
 	// when ctrl-c pressed is. Neither will be terminated by the signal and the
 	// program will just return
-	char* msg = "Caught SIGINT\n";
-	write(STDOUT_FILENO, msg, 14);
+	char* msg = "\nCaught SIGINT\n:";
+	write(STDOUT_FILENO, msg, 16);
 	fflush(stdout);		// flush output buffers after printing
 	return;
 }
@@ -240,9 +240,10 @@ int main(int argc, char* argv[])
 			char* args[] = {""};
 			int i = 0;
 			int numArgs = 0;			// keep track of the number of arguments
-			int mypid = getpid();			// get process ID to replace any instances of $$ in command
-			char* pid = malloc(sizeof(int));		
-			sprintf(pid, "%d", mypid);	
+			long int mypid = getpid();		// get process ID to replace any instances of $$ in command
+			char* pid = malloc(sizeof(long int));		
+			sprintf(pid, "%ld",(long)getpid());
+			strcat(pid, "\n");			// new line char will be removed later, added for continuity
 			int inputRedir = 0;			// bool to check if there is to be input redirection (0 = no, 1 = yes)
 			int outputRedir = 0;			// bool to check if there is to be output redirection (0 = no, 1 = yes)
 
