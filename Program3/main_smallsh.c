@@ -9,6 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <fcntl.h>
 
 // global variable to check if SIGTSTP signal has been received and if the shell is
 // only running foreground process
@@ -16,9 +17,16 @@
 // 1 = SIGTSTP signal has been received - in foreground-only mode
 int foregroundMode = 0;
 
+	
+pid_t backgroundPids[128];	// stores the pids of background processes
 
 /* ********************************************************************************** 
- ** Description: Signal catcher for SIGTSTP (CTRL-Z)
+ ** Description: Signal catcher for SIGTSTP (CTRL-Z) - the parent process is directed
+		 to this signal handler which puts the shell into a foreground-only
+		 state when the program receives its first SIGTSTP signal (child
+		 processes are not affected). When a second SIGTSTP signal is received,
+		 the shell will return to normal operation and processe can be put in
+		 the background
  ** Input(s): 	 Integer value representing a signal number
  ** Output(s): 	 
  ** Returns: 	 No return value
@@ -46,18 +54,24 @@ void catchSIGTSTP(int sigNo)
 
 
 /* ********************************************************************************** 
- ** Description: Signal catcher for SIGINT (CTRL-C)
+ ** Description: Signal catcher for SIGINT (CTRL-C) - the parent process and all
+		 background processes will be directed to this signal handler which 
+		 simply returns, as the parent process and background processes should
+		 not be terminated when a SIGINT signal is received by the program
  ** Input(s): 	 Integer value representing a signal number
- ** Output(s): 	 
+ ** Output(s): 	 Message will be displayed on screen informing the user that a SIGNINT
+		 signal was received	 
  ** Returns: 	 No return value
  ** *******************************************************************************/
 void catchSIGINT(int sigNo)
 {
-	// TO DO
-	// should not terminate shell, only fg processes and not any bg processes
+	// the parent shell process and any background processes will be directed here
+	// when ctrl-c pressed is. Neither will be terminated by the signal and the
+	// program will just return
 	char* msg = "Caught SIGINT\n";
-	write(STDOUT_FILENO, msg, 13);
-	exit(0);
+	write(STDOUT_FILENO, msg, 14);
+	fflush(stdout);		// flush output buffers after printing
+	return;
 }
 
 /* ********************************************************************************** 
@@ -86,9 +100,9 @@ int main(int argc, char* argv[])
 	struct sigaction SIGINT_action = {0};
 	struct sigaction SIGTSTP_action = {0};
 
-	SIGINT_action.sa_handler = catchSIGINT;		// point sa_handler function pointer to catchSIGINT function
+	SIGINT_action.sa_handler = catchSIGINT;		// parent process will ignore the SIGINT signal
 	sigfillset(&SIGINT_action.sa_mask);		// delay all signals while this mask in place
-	SIGINT_action.sa_flags = 0;			// do not set any flags
+	SIGINT_action.sa_flags = SA_RESTART;		// SA_RESTART flag restarts system calls automatically
 
 
 	SIGTSTP_action.sa_handler = catchSIGTSTP;	// point sa_handler function pointer to catchSIGSTP function
@@ -106,7 +120,6 @@ int main(int argc, char* argv[])
 	int numCharsEntered = 0;	// hold the number of chars entered by user
 	int currChar = 0;		// tracks where we are when we print out every character
 
-	pid_t backgroundPids[128];	// stores the pids of background processes
 	int backgroundNum = 0;		// tracks number of background processes	
 	int childExitMethod = -5;	// stores the result of how a child process exited
 
@@ -230,6 +243,8 @@ int main(int argc, char* argv[])
 			int mypid = getpid();			// get process ID to replace any instances of $$ in command
 			char* pid = malloc(sizeof(int));		
 			sprintf(pid, "%d", mypid);	
+			int inputRedir = 0;			// bool to check if there is to be input redirection (0 = no, 1 = yes)
+			int outputRedir = 0;			// bool to check if there is to be output redirection (0 = no, 1 = yes)
 
 			while (argPtr != NULL)
 			{
@@ -237,6 +252,18 @@ int main(int argc, char* argv[])
 				if (strstr(argPtr, "$$") != NULL)
 				{
 					args[i] = pid;
+				}
+				// check if input redirection operator entered <
+				else if (strchr(argPtr, '<') != NULL)
+				{
+					//switch bool value to true
+					inputRedir = 1;
+				} 
+				// check if output redirection operator entered >
+				else if (strchr(argPtr, '>') != NULL)
+				{
+					// switch bool value to true
+					outputRedir = 1;
 				}
 				else
 				{
@@ -261,8 +288,13 @@ int main(int argc, char* argv[])
 			else if (spawnPid == 0)
 			{
 				// IN CHILD PROCESS
-				// child process carries out input/output redirection with dup2()
-			
+		
+				// set child processes to react to the default behaviour of the SIGINT signal (i.e. terminate)	
+				SIGINT_action.sa_handler = SIG_DFL;
+
+				// set child processes to ignore SIGTSTP signals
+				//SIGTSTP_action.sa_handler = SIG_IGN;
+
 				// if user only entered one argument
 				if (numArgs == 1)
 				{
@@ -280,6 +312,11 @@ int main(int argc, char* argv[])
 				// if user entered more than 1 argument
 				else
 				{
+					// check if user entered any redirection symbols
+					if (inputRedir == 1 || outputRedir == 1)
+					{
+					}
+
 					//remove newline character from last argument
 					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';		
 	
@@ -289,6 +326,33 @@ int main(int argc, char* argv[])
 					// check if child process is to be run in the background
 					if (strchr(args[numArgs - 1], '&') != NULL)
 					{
+						int redirect;
+						int target = open("/dev/null", O_WRONLY);
+
+						// if no output redirection given for a background command,
+						// redirect their output to /dev/null
+						if (outputRedir == 0)
+						{
+							redirect = dup2(target, 1);
+							if (redirect == -1)
+							{
+								perror("Error with dup2 - output redirection\n");
+								exit(1);
+							}
+						}
+											
+						// if no input redirection given for a background command,
+						// redirect their input to /dev/null
+						if (inputRedir == 0)
+						{
+							redirect = dup2(target, 0);
+							if (redirect == -1)
+							{
+								perror("Error with dup2 - input redirection\n");
+								exit(1);
+							}
+						}					
+	
 						//pass in the arguments except the ampersand
 						execlp(args[0], args[0], args[1], args[3]);
 					}			
@@ -313,6 +377,9 @@ int main(int argc, char* argv[])
 				// if no SIGTSTP signal has been received, put process in background
 				if (foregroundMode == 0)
 				{
+					// tell the background process to ignore the SIGINT signal
+					SIGINT_action.sa_handler = catchSIGINT; 
+
 					// print out process id of background process when it begins
 					printf("background pid is %d\n", spawnPid);
 					fflush(stdout);		// flush output buffers after printing
@@ -328,6 +395,15 @@ int main(int argc, char* argv[])
 					// run child process in the foreground, and block the parent until
 					// the child process terminates
 					waitpid(spawnPid, &childExitMethod, 0);
+					
+					// if child process was terminated by a signal, the parent prints out the number
+					// of the signal that killed the foreground child process
+	
+					if (WIFSIGNALED(childExitMethod) != 0)
+					{	
+						printf("terminated by signal %d\n", WTERMSIG(childExitMethod));
+						fflush(stdout);		// flush output buffers after printing
+					}	
 				}
 					
 			}
@@ -336,6 +412,16 @@ int main(int argc, char* argv[])
 				// if child process is to be run in the foreground, block the parent until
 				// the child process with the specified PID terminates
 				waitpid(spawnPid, &childExitMethod, 0);
+				
+				// if child process was terminated by a signal, the parent prints out the number
+				// of the signal that killed the foreground child process
+
+				if (WIFSIGNALED(childExitMethod) != 0)
+				{	
+					printf("terminated by signal %d\n", WTERMSIG(childExitMethod));
+					fflush(stdout);		// flush output buffers after printing
+				}	
+
 			}
 
 			//check if any background processes have finished before prompting for new command
@@ -348,11 +434,22 @@ int main(int argc, char* argv[])
 				// if a background process has finished
 				if (done != 0)
 				{
-					// print out process ID and exit status of the terminated background process - if no exit status display its terminating signal
-					backgroundStatus = WEXITSTATUS(&childExitMethod);
-					printf("background pid %d is done: exit status %d\n", backgroundPids[i], backgroundStatus);
-					fflush(stdout);		// flush output buffers after printing
+					// prints out the exit status
+					if (WIFEXITED(childExitMethod) != 0)
+					{
+						printf("background pid %d is done: exit value %d\n", backgroundPids[i], WEXITSTATUS(childExitMethod));		
+						fflush(stdout);		// flush output buffers after printing
+					}
+					// print out the terminating signal
+					else if (WIFSIGNALED(childExitMethod) != 0)
+					{	
+						printf("background pid %d terminated by signal %d\n", backgroundPids[i], WTERMSIG(childExitMethod));
+						fflush(stdout);		// flush output buffers after printing
+					}	
+				
 					//remove from backgroundPid array and subtract one from number of background processes
+					backgroundPids[i] = 0;
+					backgroundNum--;
 				}
 			}
 		}
