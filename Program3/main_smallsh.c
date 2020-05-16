@@ -290,11 +290,25 @@ int main(int argc, char* argv[])
 			{
 				// IN CHILD PROCESS
 		
-				// set child processes to react to the default behaviour of the SIGINT signal (i.e. terminate)	
-				SIGINT_action.sa_handler = SIG_DFL;
+				// SET UP SIGNAL HANDLERS 
 
-				// set child processes to ignore SIGTSTP signals
-				//SIGTSTP_action.sa_handler = SIG_IGN;
+				// initialize the sigaction structs
+				struct sigaction SIGINT_child_action = {0};
+				struct sigaction SIGTSTP_child_action = {0};
+
+				// set child processes to react to the default behaviour of the SIGINT signal (i.e. terminate)	
+				SIGINT_child_action.sa_handler = SIG_DFL;		
+				sigfillset(&SIGINT_child_action.sa_mask);		// delay all signals while this mask in place
+				SIGINT_action.sa_flags = 0;			
+
+
+				// set child processes to ignore if the SIGTSTP signal is received
+				SIGTSTP_child_action.sa_handler = SIG_IGN;	
+				sigfillset(&SIGTSTP_child_action.sa_mask);		// delay all signals while this mask in place
+				SIGTSTP_child_action.sa_flags = 0;
+
+				sigaction(SIGINT, &SIGINT_child_action, NULL);		// register signal handler for SIGNINT
+				sigaction(SIGTSTP, &SIGTSTP_child_action, NULL);	// register signal handler for SIGSTP
 
 				// if user only entered one argument
 				if (numArgs == 1)
@@ -327,6 +341,15 @@ int main(int argc, char* argv[])
 					// check if child process is to be run in the background
 					if (strchr(args[numArgs - 1], '&') != NULL)
 					{
+						// tell the background process to ignore the SIGINT signal
+						
+						struct sigaction SIGINT_background = {0};
+
+						SIGINT_background.sa_handler = SIG_IGN;		
+						sigfillset(&SIGINT_background.sa_mask);		// delay all signals while this mask in place
+						SIGINT_background.sa_flags = 0;			
+						sigaction(SIGINT, &SIGINT_background, NULL);
+
 						int redirect;
 						int target = open("/dev/null", O_WRONLY);
 
@@ -378,9 +401,6 @@ int main(int argc, char* argv[])
 				// if no SIGTSTP signal has been received, put process in background
 				if (foregroundMode == 0)
 				{
-					// tell the background process to ignore the SIGINT signal
-					SIGINT_action.sa_handler = catchSIGINT; 
-
 					// print out process id of background process when it begins
 					printf("background pid is %d\n", spawnPid);
 					fflush(stdout);		// flush output buffers after printing
