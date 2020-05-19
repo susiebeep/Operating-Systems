@@ -246,6 +246,8 @@ int main(int argc, char* argv[])
 			strcat(pid, "\n");			// new line char will be removed later, added for continuity
 			int inputRedir = 0;			// bool to check if there is to be input redirection (0 = no, 1 = yes)
 			int outputRedir = 0;			// bool to check if there is to be output redirection (0 = no, 1 = yes)
+			int outputIdx = 0;			// index of output redirection operator
+			int inputIdx = 0;			// index of input redirection operator
 
 			while (argPtr != NULL)
 			{
@@ -257,14 +259,20 @@ int main(int argc, char* argv[])
 				// check if input redirection operator entered <
 				else if (strchr(argPtr, '<') != NULL)
 				{
-					//switch bool value to true
+					// switch bool value to true
 					inputRedir = 1;
+					
+					// save index of <
+					inputIdx = i;
 				} 
 				// check if output redirection operator entered >
 				else if (strchr(argPtr, '>') != NULL)
 				{
 					// switch bool value to true
 					outputRedir = 1;
+					
+					// save index of >
+					outputIdx = i;
 				}
 				else
 				{
@@ -329,67 +337,158 @@ int main(int argc, char* argv[])
 				{
 					// check if user entered any redirection symbols
 					if (inputRedir == 1 || outputRedir == 1)
-					{
-					}
-
-					//remove newline character from last argument
-					args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';		
+					{	
+						// if (inputRedir == 1 && outputRedir == 1)
 	
-					// add NULL to end of arguments array prior to passing to execvp function
-					args[numArgs] = NULL;
-						
-					// check if child process is to be run in the background
-					if (strchr(args[numArgs - 1], '&') != NULL)
-					{
-						// tell the background process to ignore the SIGINT signal
-						
-						struct sigaction SIGINT_background = {0};
-
-						SIGINT_background.sa_handler = SIG_IGN;		
-						sigfillset(&SIGINT_background.sa_mask);		// delay all signals while this mask in place
-						SIGINT_background.sa_flags = 0;			
-						sigaction(SIGINT, &SIGINT_background, NULL);
-
-						int redirect;
-						int target = open("/dev/null", O_WRONLY);
-
-						// if no output redirection given for a background command,
-						// redirect their output to /dev/null
-						if (outputRedir == 0)
+						// if redirecting stdout
+						if (outputRedir == 1)
 						{
-							redirect = dup2(target, 1);
-							if (redirect == -1)
+							// remove newline character from last argument
+							args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
+
+							// open the output file for writing only, create it if it doesn't exist and
+							// write over the contents if it does exist
+							int output = open(args[outputIdx + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+						
+							// if file cannot be opened, display error message, exit status will be set to 1
+							// by default
+							if (output == -1)
+							{
+								perror("Could not open output file\n");														
+							}
+
+							// redirect stdout to file specified
+							int redirect1 = dup2(output, 1);
+							if (redirect1 == -1)							
 							{
 								perror("Error with dup2 - output redirection\n");
 								exit(1);
 							}
+
+							//copy all the arguments except for the redirection symbol and output file name
+							int i;
+							char* validargs[8];
+								
+							for (i = 0; i < outputIdx; i++)
+							{
+								validargs[i] = malloc(sizeof(char));
+								strcpy(validargs[i], args[i]);
+							}
+							validargs[outputIdx] = NULL;
+
+							//pass in the arguments except the redirection symbol and output file name
+							execvp(validargs[0], validargs);
+							perror("Execvp did not work\n");
+							//set exit status to 1	
+							exit(1);
+							break;
+						
 						}
-											
-						// if no input redirection given for a background command,
-						// redirect their input to /dev/null
-						if (inputRedir == 0)
+						// if redirecting stdin
+						if (inputRedir == 1)
 						{
-							redirect = dup2(target, 0);
-							if (redirect == -1)
+							// remove newline character from last argument
+							args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
+
+							// open the input file for reading only
+							int input = open(args[inputIdx + 1], O_RDONLY);
+
+							// if file cannot be opened, display error message, exit status will be set to 1
+							// by default							
+							if (input == -1)
+							{
+								perror("Could not open input file\n");														
+							}
+	
+							// redirect stdin to read from file specified
+							int redirect0 = dup2(input, 0);		
+							if (redirect0 == -1)							
 							{
 								perror("Error with dup2 - input redirection\n");
 								exit(1);
 							}
-						}					
-	
-						//pass in the arguments except the ampersand
-						execlp(args[0], args[0], args[1], args[3]);
-					}			
+							//copy all the arguments except for the redirection symbol and input file name
+							int i;
+							char* validargs[8];
+								
+							for (i = 0; i < inputIdx; i++)
+							{
+								validargs[i] = malloc(sizeof(char));
+								strcpy(validargs[i], args[i]);
+							}
+							validargs[inputIdx] = NULL;
+
+							//pass in the arguments except the redirection symbol and input file name
+							execvp(validargs[0], validargs);
+							perror("Execvp did not work\n");
+							//set exit status to 1	
+							exit(1);
+							break;
+						}
+					}
+					
+					// user did not enter any redirection symbols				
 					else
 					{
-						execvp(args[0], args);
-					}
-					// if non-built in command does not exist, display error message
-					// and exit
-					perror("Execvp did not work\n");
-					//set exit status to 1
-					exit(1);
-					break;	
+						//remove newline character from last argument
+						args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';		
+	
+						// add NULL to end of arguments array prior to passing to execvp function
+						args[numArgs] = NULL;
+							
+						// check if child process is to be run in the background
+						if (strchr(args[numArgs - 1], '&') != NULL)
+						{
+							// tell the background process to ignore the SIGINT signal
+							
+							struct sigaction SIGINT_background = {0};
+
+							SIGINT_background.sa_handler = SIG_IGN;		
+							sigfillset(&SIGINT_background.sa_mask);		// delay all signals while this mask in place
+							SIGINT_background.sa_flags = 0;			
+							sigaction(SIGINT, &SIGINT_background, NULL);
+
+							int redirect;
+							int target = open("/dev/null", O_WRONLY);
+
+							// if no output redirection given for a background command,
+							// redirect their output to /dev/null
+							if (outputRedir == 0)
+							{
+								redirect = dup2(target, 1);
+								if (redirect == -1)
+								{
+									perror("Error with dup2 - output redirection\n");
+									exit(1);
+								}
+							}
+												
+							// if no input redirection given for a background command,
+							// redirect their input to /dev/null
+							if (inputRedir == 0)
+							{
+								redirect = dup2(target, 0);
+								if (redirect == -1)
+								{
+									perror("Error with dup2 - input redirection\n");
+									exit(1);
+								}
+							}					
+		
+							//pass in the arguments except the ampersand
+							execlp(args[0], args[0], args[1], args[3]);
+						}			
+						else
+						{
+							execvp(args[0], args);
+						}
+						// if non-built in command does not exist, display error message
+						// and exit
+						perror("Execvp did not work\n");
+						//set exit status to 1
+						exit(1);
+						break;
+					}	
 				}
 				
 			}			
