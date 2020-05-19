@@ -392,6 +392,9 @@ int main(int argc, char* argv[])
 
 							// open the input file for reading only
 							int input = open(args[inputIdx + 1], O_RDONLY);
+							
+							//ensure the file pointer is at the start of the file
+							lseek(input, 0, SEEK_SET);
 
 							// if file cannot be opened, display error message, exit status will be set to 1
 							// by default							
