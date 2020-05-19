@@ -68,9 +68,6 @@ void catchSIGINT(int sigNo)
 	// the parent shell process and any background processes will be directed here
 	// when ctrl-c pressed is. Neither will be terminated by the signal and the
 	// program will just return
-	char* msg = "\nCaught SIGINT\n:";
-	write(STDOUT_FILENO, msg, 16);
-	fflush(stdout);		// flush output buffers after printing
 	return;
 }
 
@@ -338,10 +335,68 @@ int main(int argc, char* argv[])
 					// check if user entered any redirection symbols
 					if (inputRedir == 1 || outputRedir == 1)
 					{	
-						// if (inputRedir == 1 && outputRedir == 1)
-	
+						// if redirecting both stdout and stdin
+						 if (inputRedir == 1 && outputRedir == 1)
+						{
+							// remove newline character from last argument
+							args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
+
+							// open the output file for writing only, create it if it doesn't exist and
+							// write over the contents if it does exist
+							int output = open(args[outputIdx + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+						
+							// open the input file for reading only
+							int input = open(args[inputIdx + 1], O_RDONLY);
+							
+							// if either file cannot be opened, display error message, exit status will be set to 1
+							// by default							
+							if (input == -1 || output == -1)
+							{
+								perror("Could not open input or output file\n");														
+							}
+
+							// redirect stdout to output to file specified and redirect stdin to read from file specified
+							int redirect1 = dup2(output, 1);
+							int redirect0 = dup2(input, 0);
+
+							if (redirect0 == -1 || redirect1 == -1)							
+							{
+								perror("Error with dup2 - input/output redirection\n");
+								exit(1);
+							}
+							
+							//copy all the arguments except for the redirection symbols and input and output file names
+							int i;
+							char* validargs[8];
+							int newIdx = 0;
+							
+							// find the index of where to copy to - copy up to the index of the input or output redirection
+							// operator, whichever appears first
+							if (inputIdx < outputIdx)
+							{	
+								newIdx = inputIdx;
+							}			
+							else
+							{
+								newIdx = outputIdx;			
+							}
+
+							for (i = 0; i < newIdx; i++)
+							{
+								validargs[i] = malloc(sizeof(char));
+								strcpy(validargs[i], args[i]);
+							}
+							validargs[newIdx] = NULL;
+
+							//pass in the arguments except the redirection symbol and output file name
+							execvp(validargs[0], validargs);
+							perror("Execvp did not work\n");
+							//set exit status to 1	
+							exit(1);
+							break;
+						}
 						// if redirecting stdout
-						if (outputRedir == 1)
+						else if (outputRedir == 1)
 						{
 							// remove newline character from last argument
 							args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
@@ -385,7 +440,7 @@ int main(int argc, char* argv[])
 						
 						}
 						// if redirecting stdin
-						if (inputRedir == 1)
+						else if (inputRedir == 1)
 						{
 							// remove newline character from last argument
 							args[numArgs - 1][strlen(args[numArgs - 1]) - 1] = '\0';
