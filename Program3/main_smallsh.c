@@ -194,6 +194,12 @@ int main(int argc, char* argv[])
 		// STATUS
 		if (strstr(lineEntered, "status") != NULL)
 		{
+			// remove & from lineEntered so this command cannot be run in the background
+			if (strstr(lineEntered, "&") != NULL)
+			{
+				char* remove = strstr(lineEntered, "&");
+				strcpy(remove, "\0");	
+			} 
 			// prints out the exit status or the terminating signal of the last foreground process
 			if (WIFEXITED(childExitMethod) != 0)
 			{
@@ -290,17 +296,19 @@ int main(int argc, char* argv[])
 				// replace any instances of $$ in a command with process ID of shell
 				if (strstr(argPtr, "$$") != NULL)
 				{
-					// if $$ is at the end of the line
+					// if $$ is its own argument at the end of the line
 					if (strcmp(argPtr, "$$\n") == 0)
 					{
 						strcat(pid, "\n");
 						args[i] = pid;
 					}
+					// if $$ is at the end of an argument
 					else
 					{
 						args[i] = malloc(128*sizeof(char));
-						argPtr[(strlen(argPtr)) - 2] = '\0';
+						argPtr[(strlen(argPtr)) - 3] = '\0';
 						strcpy(args[i], argPtr);
+						strcat(pid, "\n");
 						strcat(args[i], pid);
 					}
 				}
@@ -339,6 +347,7 @@ int main(int argc, char* argv[])
 			if (spawnPid == -1)
 			{
 				perror("Unable to spawn child process\n");
+				fflush(stderr);		// flush output buffers after printing
 				exit(1);
 			}
 			// child process created successfully
@@ -375,7 +384,8 @@ int main(int argc, char* argv[])
 				
 					// if non-built in command does not exist, display error message
 					// and exit
-					perror("Cannot understand command!\n");
+					printf("%s: no such file or directory\n", args[0]);
+					fflush(stdout);		// flush output buffers after printing
 					//set exit status to 1	
 					exit(1);
 					break;
@@ -404,6 +414,7 @@ int main(int argc, char* argv[])
 							if (input == -1 || output == -1)
 							{
 								perror("Could not open input or output file\n");														
+								fflush(stderr);		// flush output buffers after printing
 							}
 
 							// redirect stdout to output to file specified and redirect stdin to read from file specified
@@ -413,6 +424,7 @@ int main(int argc, char* argv[])
 							if (redirect0 == -1 || redirect1 == -1)							
 							{
 								perror("Error with input/output redirection\n");
+								fflush(stderr);		// flush output buffers after printing
 								exit(1);
 							}
 							
@@ -441,7 +453,8 @@ int main(int argc, char* argv[])
 
 							//pass in the arguments except the redirection symbol and output file name
 							execvp(validargs[0], validargs);
-							perror("Cannot understand command!\n");
+							printf("%s: no such file or directory\n", validargs[0]);
+							fflush(stdout);		// flush output buffers after printing
 							//set exit status to 1	
 							exit(1);
 							break;
@@ -460,7 +473,8 @@ int main(int argc, char* argv[])
 							// by default
 							if (output == -1)
 							{
-								perror("Could not open output file\n");														
+								printf("Could not open %s for output\n", args[outputIdx + 1]);														
+								fflush(stdout);		// flush output buffers after printing
 							}
 
 							// redirect stdout to file specified
@@ -468,6 +482,7 @@ int main(int argc, char* argv[])
 							if (redirect1 == -1)							
 							{
 								perror("Error with output redirection\n");
+								fflush(stderr);		// flush output buffers after printing
 								exit(1);
 							}
 
@@ -485,6 +500,7 @@ int main(int argc, char* argv[])
 							//pass in the arguments except the redirection symbol and output file name
 							execvp(validargs[0], validargs);
 							perror("Cannot understand command!\n");
+							fflush(stderr);		// flush output buffers after printing
 							//set exit status to 1	
 							exit(1);
 							break;
@@ -506,7 +522,8 @@ int main(int argc, char* argv[])
 							// by default							
 							if (input == -1)
 							{
-								perror("Could not open input file\n");														
+								printf("Could not open %s for input\n", args[inputIdx + 1]);														
+								fflush(stdout);		// flush output buffers after printing
 							}
 	
 							// redirect stdin to read from file specified
@@ -514,6 +531,7 @@ int main(int argc, char* argv[])
 							if (redirect0 == -1)							
 							{
 								perror("Error with input redirection\n");
+								fflush(stderr);		// flush output buffers after printing
 								exit(1);
 							}
 							//copy all the arguments except for the redirection symbol and input file name
@@ -568,6 +586,7 @@ int main(int argc, char* argv[])
 								if (redirect == -1)
 								{
 									perror("Error with output redirection\n");
+									fflush(stderr);		// flush output buffers after printing
 									exit(1);
 								}
 							}
@@ -580,6 +599,7 @@ int main(int argc, char* argv[])
 								if (redirect == -1)
 								{
 									perror("Error with input redirection\n");
+									fflush(stderr);		// flush output buffers after printing
 									exit(1);
 								}
 							}					
@@ -594,6 +614,7 @@ int main(int argc, char* argv[])
 						// if non-built in command does not exist, display error message
 						// and exit
 						perror("Cannot understand command!\n");
+						fflush(stderr);		// flush output buffers after printing
 						//set exit status to 1
 						exit(1);
 						break;
