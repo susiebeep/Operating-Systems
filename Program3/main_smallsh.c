@@ -1,7 +1,7 @@
 /* ********************************************************************************** 
  ** Program Name:   Program 3 - smallsh (main_smallsh.c)
  ** Author:         Susan Hibbert
- ** Date:           7th May 2020  			      
+ ** Date:           20th May 2020  			      
  ** Description:    Program file for the smallsh program
  ** *******************************************************************************/
 #include <stdio.h>
@@ -11,21 +11,21 @@
 #include <signal.h>
 #include <fcntl.h>
 
-// global variable to check if SIGTSTP signal has been received and if the shell is
+// global bool variable to check if SIGTSTP signal has been received and if the shell is
 // only running foreground process
-// 0 = Shell operating normally
+// 0 = Shell operating normally - background and foreground processes can be run
 // 1 = SIGTSTP signal has been received - in foreground-only mode
 int foregroundMode = 0;
 	
-pid_t backgroundPids[128];	// stores the pids of background processes
+pid_t backgroundPids[128];	// global variable which stores the pids of background processes
 
 /* ********************************************************************************** 
- ** Description: Signal catcher for SIGTSTP (CTRL-Z) - the parent process is directed
-		 to this signal handler which puts the shell into a foreground-only
-		 state when the program receives its first SIGTSTP signal (child
+ ** Description: Signal catcher for SIGTSTP (CTRL-Z) -  when the program receives a
+		 SIGTSTP signal the parent process is directed to this signal handler
+		 which puts the shell into foreground-process-only mode (child
 		 processes are not affected). When a second SIGTSTP signal is received,
-		 the shell will return to normal operation and processe can be put in
-		 the background
+		 the shell will return to normal operation and processes can be run in
+		 the background again
  ** Input(s): 	 Integer value representing a signal number
  ** Output(s): 	 Message is displayed on screen indicating whether program is entering
 		 foreground-only mode or whether it is exiting foreground-only mode
@@ -33,7 +33,7 @@ pid_t backgroundPids[128];	// stores the pids of background processes
  ** *******************************************************************************/
 void catchSIGTSTP(int sigNo)
 {
-	// if receiving first SIGTSTP signal
+	// if receiving first SIGTSTP signal, put shell in foreground-only mode
 	if (foregroundMode == 0)
 	{
 		char *msg = "\nEntering foreground-only mode (& is now ignored)\n:";
@@ -41,8 +41,8 @@ void catchSIGTSTP(int sigNo)
 		fflush(stdout);		// flush output buffers after printing
 		foregroundMode = 1;
 	}
-	// if already received one SIGTSTP signal and currently operating in foreground
-	// only mode
+	// if previously received one SIGTSTP signal and currently operating in foreground
+	// only mode, switch back to normal shell operation
 	else if (foregroundMode == 1)
 	{	
 		char* msg = "\nExiting foreground-only mode\n:";
@@ -54,10 +54,11 @@ void catchSIGTSTP(int sigNo)
 
 
 /* ********************************************************************************** 
- ** Description: Signal catcher for SIGINT (CTRL-C) - the parent process and all
-		 background processes will be directed to this signal handler which 
-		 simply returns, as the parent process and background processes should
-		 not be terminated when a SIGINT signal is received by the program
+ ** Description: Signal catcher for SIGINT (CTRL-C) - when a SIGINT signal is received
+		 by the program the parent process and all background processes will be
+		 directed to this signal handler which simply returns, as the parent
+		 process and background processes should not be terminated by this
+		 signa;
  ** Input(s): 	 Integer value representing a signal number
  ** Output(s): 	 No output 
  ** Returns: 	 No return value
@@ -72,7 +73,7 @@ void catchSIGINT(int sigNo)
 
 /* ********************************************************************************** 
  ** Description: Main function - where the shell is implemented. User is prompted for
-		 command line arguments and the shell will run the commands. This 
+		 command line arguments and the shell will run these commands. This 
 		 includes built-in commands (exit, cd, status) and non-built-in 
 		 commands. The shell also allows for the redirection of standard input
 		 and output and supports both foreground and background processes. It
@@ -82,15 +83,16 @@ void catchSIGINT(int sigNo)
  ** Output(s): 	 User is prompted to enter command line arguments, the output of which
 		 are displayed on the screen. Messages are displayed when background
 		 processes are completed. Error messages are displayed on screen should
-		 any errors arise during the operation of the shell.
-		 If the shell receives a SIGSTP or SIGINT signal, appropriate messages
+		 any errors arise during the operation of the shell (invalid command,
+		 invalid file name etc).
+		 If the shell receives a SIGTSTP or SIGINT signal, respective messages
 		 appear on the screen informing the user of any changes to the shell's
 		 operation.
  ** Returns: 	 Returns an exit status of 0
  ** *******************************************************************************/
 int main(int argc, char* argv[])
 {
-	// SET UP SIGNAL HANDLERS 
+	// SET UP SIGNAL HANDLERS FOR PARENT PROCESS 
 
 	// initialize the sigaction structs
 	struct sigaction SIGINT_action = {0};
@@ -106,24 +108,25 @@ int main(int argc, char* argv[])
 	SIGTSTP_action.sa_flags = SA_RESTART;		// SA_RESTART flag restarts system calls automatically
 
 	sigaction(SIGINT, &SIGINT_action, NULL);	// register signal handler for SIGNINT
-	sigaction(SIGTSTP, &SIGTSTP_action, NULL);	// register signal handler for SIGSTP
+	sigaction(SIGTSTP, &SIGTSTP_action, NULL);	// register signal handler for SIGTSTP
 
 
-	// GET COMMAND FROM PROMPT
+	// GET COMMAND LINE ARGUMENTS FROM PROMPT
 
 	char* lineEntered = NULL; 	// points to a buffer allocated by getline() to hold input string
 	size_t bufferSize = 0;		// holds how large the allocated buffer is 
 	int numCharsEntered = 0;	// hold the number of chars entered by user
-	int currChar = 0;		// tracks where we are when we print out every character
 
 	int backgroundNum = 0;		// tracks number of background processes	
+	int runBackground = 0;		// bool indicatting whether process should be run in background (0 = no, 1 = yes)
 	int childExitMethod = -5;	// stores the result of how a child process exited
 
 	while(1)
 	{
 		while(1)
 		{
-			printf(":");		//colon symbol used as a prompt for each command line
+			//colon symbol used as a prompt for each command line
+			printf(":");		
 
 			// get user input
 			numCharsEntered = getline(&lineEntered, &bufferSize, stdin);
@@ -159,7 +162,7 @@ int main(int argc, char* argv[])
 							fflush(stdout);		// flush output buffers after printing
 						}	
 					
-						//remove from backgroundPid array and subtract one from number of background processes
+						//remove pid of background process from backgroundPid array and subtract one from number of background processes
 						backgroundPids[i] = 0;
 						backgroundNum--;
 					}
@@ -190,7 +193,8 @@ int main(int argc, char* argv[])
 		}
 
 		// break brings you to the outer while loop - valid input entered
-
+		
+		// BUILT-IN COMMANDS
 		// STATUS
 		if (strstr(lineEntered, "status") != NULL)
 		{
@@ -200,7 +204,7 @@ int main(int argc, char* argv[])
 				char* remove = strstr(lineEntered, "&");
 				strcpy(remove, "\0");	
 			} 
-			// prints out the exit status or the terminating signal of the last foreground process
+			// print out the exit status or the terminating signal of the last foreground process
 			if (WIFEXITED(childExitMethod) != 0)
 			{
 				printf("exit value %d\n", WEXITSTATUS(childExitMethod));		
@@ -211,6 +215,7 @@ int main(int argc, char* argv[])
 				printf("terminated by signal %d\n", WTERMSIG(childExitMethod));
 				fflush(stdout);		// flush output buffers after printing
 			}	
+			// if command is run before any foreground command is run then return exit status of 0
 			else
 			{
 				printf("exit status 0");
@@ -239,7 +244,7 @@ int main(int argc, char* argv[])
 				strcat(pid, "\n");			// new line char will be removed later, added for continuity
 				while (newPath != NULL)
 				{
-					// replace any instances of $$ at the end of the path with process ID of shell and break
+					// replace any instances of $$ at the end of the path with process ID of shell
 					if (strstr(newPath, "$$\n") != NULL)
 					{
 						args[i] = malloc(128*sizeof(char));
@@ -248,8 +253,7 @@ int main(int argc, char* argv[])
 						strcat(args[i], pid);
 						break;
 					}
-					// when you find the name of the directory in the lineEntered string
-					// exit the loop
+					// when you find the name of the directory in the lineEntered string exit the loop
 					else if (strcmp(newPath, "cd") != 0)
 					{
 						args[i] = newPath;
@@ -278,7 +282,7 @@ int main(int argc, char* argv[])
 		// NON BUILT-IN COMMANDS
 		else
 		{
-			// extract each argument entered by splitting up lineEntered, using a space
+			// extract each argument entered by user by splitting up lineEntered, using a space
 			// as a delimiter
 			char* argPtr = strtok(lineEntered, " ");
 			char* args[] = {""};
@@ -338,6 +342,13 @@ int main(int argc, char* argv[])
 				numArgs++;
 				argPtr = strtok(NULL, " ");
 			}
+			
+			// check if process is to be run in the background
+			if (strcmp(args[numArgs - 1], "&\n") == 0)
+			{
+				// switch bool to true i.e. run in background
+				runBackground = 1;
+			}
 
 			//when a non-built in command is received, the parent forks() off a child	
 			pid_t spawnPid = -5;
@@ -355,7 +366,7 @@ int main(int argc, char* argv[])
 			{
 				// IN CHILD PROCESS
 		
-				// SET UP SIGNAL HANDLERS 
+				// SET UP SIGNAL HANDLERS FOR CHILD PROCESS
 
 				// initialize the sigaction structs
 				struct sigaction SIGINT_child_action = {0};
@@ -373,7 +384,7 @@ int main(int argc, char* argv[])
 				SIGTSTP_child_action.sa_flags = 0;
 
 				sigaction(SIGINT, &SIGINT_child_action, NULL);		// register signal handler for SIGNINT
-				sigaction(SIGTSTP, &SIGTSTP_child_action, NULL);	// register signal handler for SIGSTP
+				sigaction(SIGTSTP, &SIGTSTP_child_action, NULL);	// register signal handler for SIGTSTP
 
 				// if user only entered one argument
 				if (numArgs == 1)
@@ -449,9 +460,10 @@ int main(int argc, char* argv[])
 								validargs[i] = malloc(sizeof(char));
 								strcpy(validargs[i], args[i]);
 							}
+							// add NULL to end of arguments array prior to passing to execvp function
 							validargs[newIdx] = NULL;
 
-							//pass in the arguments except the redirection symbol and output file name
+							//pass in the arguments except the redirection symbol and file names
 							execvp(validargs[0], validargs);
 							printf("%s: no such file or directory\n", validargs[0]);
 							fflush(stdout);		// flush output buffers after printing
@@ -495,6 +507,7 @@ int main(int argc, char* argv[])
 								validargs[i] = malloc(sizeof(char));
 								strcpy(validargs[i], args[i]);
 							}
+							// add NULL to end of arguments array prior to passing to execvp function
 							validargs[outputIdx] = NULL;
 
 							//pass in the arguments except the redirection symbol and output file name
@@ -543,6 +556,7 @@ int main(int argc, char* argv[])
 								validargs[i] = malloc(sizeof(char));
 								strcpy(validargs[i], args[i]);
 							}
+							// add NULL to end of arguments array prior to passing to execvp function
 							validargs[inputIdx] = NULL;
 
 							//pass in the arguments except the redirection symbol and input file name
@@ -562,12 +576,12 @@ int main(int argc, char* argv[])
 	
 						// add NULL to end of arguments array prior to passing to execvp function
 						args[numArgs] = NULL;
-							
+						
 						// check if child process is to be run in the background
-						if (strchr(args[numArgs - 1], '&') != NULL)
-						{
+						if (runBackground == 1)
+						{	
+							// SET UP SIGNAL HANDLERS FOR BACKGROUND PROCESS
 							// tell the background process to ignore the SIGINT signal
-							
 							struct sigaction SIGINT_background = {0};
 
 							SIGINT_background.sa_handler = SIG_IGN;		
@@ -623,10 +637,11 @@ int main(int argc, char* argv[])
 				
 			}			
 			// IN PARENT PROCESS
-					
+				
 			// check if child process is to be run in the background
-			if (strchr(args[numArgs - 1], '&') != NULL)
+			if (runBackground == 1)
 			{
+
 				// if no SIGTSTP signal has been received, put process in background
 				if (foregroundMode == 0)
 				{
@@ -639,7 +654,7 @@ int main(int argc, char* argv[])
 					// add one to the number of background processes
 					backgroundNum++;	
 				}
-				// if SIGSTP signal has been received, in foreground-only mode
+				// if SIGTSTP signal has been received, in foreground-only mode
 				else
 				{
 					// run child process in the foreground, and block the parent until
@@ -673,7 +688,11 @@ int main(int argc, char* argv[])
 				}	
 
 			}
-
+			
+			
+			// switch bool back to false
+			runBackground = 0;
+			
 			//check if any background processes have finished before prompting for new command
 			int done = 0;
 			int backgroundStatus = 0;
@@ -684,7 +703,7 @@ int main(int argc, char* argv[])
 				// if a background process has finished
 				if (done != 0)
 				{
-					// prints out the exit status
+					// print out the exit status
 					if (WIFEXITED(childExitMethod) != 0)
 					{
 						printf("background pid %d is done: exit value %d\n", backgroundPids[i], WEXITSTATUS(childExitMethod));		
@@ -703,6 +722,7 @@ int main(int argc, char* argv[])
 				}
 			}
 		}
+		fflush(stdout); 	// flush stdout between commands
 	}	
 	return 0;
-}
+}	
