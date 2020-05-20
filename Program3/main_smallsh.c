@@ -2,7 +2,7 @@
  ** Program Name:   Program 3 - smallsh (main_smallsh.c)
  ** Author:         Susan Hibbert
  ** Date:           7th May 2020  			      
- ** Description:    Main function file for the smallsh program
+ ** Description:    Program file for the smallsh program
  ** *******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,6 @@
 // 0 = Shell operating normally
 // 1 = SIGTSTP signal has been received - in foreground-only mode
 int foregroundMode = 0;
-
 	
 pid_t backgroundPids[128];	// stores the pids of background processes
 
@@ -28,7 +27,8 @@ pid_t backgroundPids[128];	// stores the pids of background processes
 		 the shell will return to normal operation and processe can be put in
 		 the background
  ** Input(s): 	 Integer value representing a signal number
- ** Output(s): 	 
+ ** Output(s): 	 Message is displayed on screen indicating whether program is entering
+		 foreground-only mode or whether it is exiting foreground-only mode
  ** Returns: 	 No return value
  ** *******************************************************************************/
 void catchSIGTSTP(int sigNo)
@@ -59,8 +59,7 @@ void catchSIGTSTP(int sigNo)
 		 simply returns, as the parent process and background processes should
 		 not be terminated when a SIGINT signal is received by the program
  ** Input(s): 	 Integer value representing a signal number
- ** Output(s): 	 Message will be displayed on screen informing the user that a SIGNINT
-		 signal was received	 
+ ** Output(s): 	 No output 
  ** Returns: 	 No return value
  ** *******************************************************************************/
 void catchSIGINT(int sigNo)
@@ -131,9 +130,40 @@ int main(int argc, char* argv[])
 
 			// INPUT VALIDATION
 
-			// if user did not enter any commands, reprompt user for another command
-			if (lineEntered[0] == '\n')
+			// if user did not enter any commands or entered a comment (line beginning with #), 
+			// ignore and reprompt user for another command, after checking if any background
+			// processes have finished
+			if (lineEntered[0] == '\n' || lineEntered[0] == '#')
 			{
+				//check if any background processes have finished before prompting for new command
+				int i;
+				int done = 0;
+				int backgroundStatus = 0;
+				for (i = 0; i < backgroundNum; i++)
+				{
+					done  = waitpid(backgroundPids[i], &childExitMethod, WNOHANG);
+			
+					// if a background process has finished
+					if (done != 0)
+					{
+						// prints out the exit status
+						if (WIFEXITED(childExitMethod) != 0)
+						{
+							printf("background pid %d is done: exit value %d\n", backgroundPids[i], WEXITSTATUS(childExitMethod));		
+							fflush(stdout);		// flush output buffers after printing
+						}
+						// print out the terminating signal
+						else if (WIFSIGNALED(childExitMethod) != 0)
+						{	
+							printf("background pid %d is done: terminated by signal %d\n", backgroundPids[i], WTERMSIG(childExitMethod));
+							fflush(stdout);		// flush output buffers after printing
+						}	
+					
+						//remove from backgroundPid array and subtract one from number of background processes
+						backgroundPids[i] = 0;
+						backgroundNum--;
+					}
+				}
 				continue;
 			}
 
@@ -152,12 +182,6 @@ int main(int argc, char* argv[])
 				fflush(stdout);		// flush output buffers after printing
 				continue;
 			}
-			// if user entered a comment (line beginning with #), ignore and reprompt user for another command
-			else if (lineEntered[0] == '#')
-			{
-				continue;
-			}
-
 			// otherwise exit the inner while loop as user entered valid prompt
 			else
 			{
@@ -168,7 +192,7 @@ int main(int argc, char* argv[])
 		// break brings you to the outer while loop - valid input entered
 
 		// STATUS
-		if (strcmp(lineEntered, "status\n") == 0)
+		if (strstr(lineEntered, "status") != NULL)
 		{
 			// prints out the exit status or the terminating signal of the last foreground process
 			if (WIFEXITED(childExitMethod) != 0)
@@ -201,31 +225,48 @@ int main(int argc, char* argv[])
 			{
 				// search through lineEntered for the specified directory
 				char* newPath = strtok(lineEntered, " ");
+				char* args[] = {""};
+				int i = 0;
+				long int mypid = getpid();		// get process ID to replace any instances of $$ in command
+				char* pid = malloc(sizeof(long int));		
+				sprintf(pid, "%ld",(long)getpid());
+				strcat(pid, "\n");			// new line char will be removed later, added for continuity
 				while (newPath != NULL)
 				{
+					// replace any instances of $$ at the end of the path with process ID of shell and break
+					if (strstr(newPath, "$$\n") != NULL)
+					{
+						args[i] = malloc(128*sizeof(char));
+						newPath[(strlen(newPath)) - 3] = '\0';
+						strcpy(args[i], newPath);
+						strcat(args[i], pid);
+						break;
+					}
 					// when you find the name of the directory in the lineEntered string
 					// exit the loop
-					if (strcmp(newPath, "cd") != 0)
+					else if (strcmp(newPath, "cd") != 0)
 					{
+						args[i] = newPath;
 						break;
 					}
 					else
 					{
 						newPath = strtok(NULL, " ");
+						i++;
 					}
 				}
 				
 				// remove newline character from newPath before changing directory
-				newPath[strlen(newPath) -1] = '\0';
-				chdir(newPath);
+				args[i][strlen(args[i]) - 1] = '\0';
+				chdir(args[i]);
 			}
 		}
 
 		// EXIT
 		else if (strcmp(lineEntered, "exit\n") == 0)
-		{
+		{	
 			// kill all processes with SIGKILL command (-9) in the same process group (pid == 0)
-			execlp("kill", "kill", "-9", "0", ">", "/dev/null", NULL);
+			execlp("kill", "kill", "-9", "0","&>", "/dev/null",  NULL);
 		}
 
 		// NON BUILT-IN COMMANDS
@@ -237,10 +278,8 @@ int main(int argc, char* argv[])
 			char* args[] = {""};
 			int i = 0;
 			int numArgs = 0;			// keep track of the number of arguments
-			long int mypid = getpid();		// get process ID to replace any instances of $$ in command
 			char* pid = malloc(sizeof(long int));		
-			sprintf(pid, "%ld",(long)getpid());
-			strcat(pid, "\n");			// new line char will be removed later, added for continuity
+			sprintf(pid, "%ld",(long)getpid());	// get process ID to replace any instances of $$ in command
 			int inputRedir = 0;			// bool to check if there is to be input redirection (0 = no, 1 = yes)
 			int outputRedir = 0;			// bool to check if there is to be output redirection (0 = no, 1 = yes)
 			int outputIdx = 0;			// index of output redirection operator
@@ -251,7 +290,19 @@ int main(int argc, char* argv[])
 				// replace any instances of $$ in a command with process ID of shell
 				if (strstr(argPtr, "$$") != NULL)
 				{
-					args[i] = pid;
+					// if $$ is at the end of the line
+					if (strcmp(argPtr, "$$\n") == 0)
+					{
+						strcat(pid, "\n");
+						args[i] = pid;
+					}
+					else
+					{
+						args[i] = malloc(128*sizeof(char));
+						argPtr[(strlen(argPtr)) - 2] = '\0';
+						strcpy(args[i], argPtr);
+						strcat(args[i], pid);
+					}
 				}
 				// check if input redirection operator entered <
 				else if (strchr(argPtr, '<') != NULL)
@@ -324,7 +375,7 @@ int main(int argc, char* argv[])
 				
 					// if non-built in command does not exist, display error message
 					// and exit
-					perror("Execlp did not work\n");
+					perror("Cannot understand command!\n");
 					//set exit status to 1	
 					exit(1);
 					break;
@@ -361,7 +412,7 @@ int main(int argc, char* argv[])
 
 							if (redirect0 == -1 || redirect1 == -1)							
 							{
-								perror("Error with dup2 - input/output redirection\n");
+								perror("Error with input/output redirection\n");
 								exit(1);
 							}
 							
@@ -390,7 +441,7 @@ int main(int argc, char* argv[])
 
 							//pass in the arguments except the redirection symbol and output file name
 							execvp(validargs[0], validargs);
-							perror("Execvp did not work\n");
+							perror("Cannot understand command!\n");
 							//set exit status to 1	
 							exit(1);
 							break;
@@ -416,7 +467,7 @@ int main(int argc, char* argv[])
 							int redirect1 = dup2(output, 1);
 							if (redirect1 == -1)							
 							{
-								perror("Error with dup2 - output redirection\n");
+								perror("Error with output redirection\n");
 								exit(1);
 							}
 
@@ -433,7 +484,7 @@ int main(int argc, char* argv[])
 
 							//pass in the arguments except the redirection symbol and output file name
 							execvp(validargs[0], validargs);
-							perror("Execvp did not work\n");
+							perror("Cannot understand command!\n");
 							//set exit status to 1	
 							exit(1);
 							break;
@@ -462,7 +513,7 @@ int main(int argc, char* argv[])
 							int redirect0 = dup2(input, 0);		
 							if (redirect0 == -1)							
 							{
-								perror("Error with dup2 - input redirection\n");
+								perror("Error with input redirection\n");
 								exit(1);
 							}
 							//copy all the arguments except for the redirection symbol and input file name
@@ -478,7 +529,7 @@ int main(int argc, char* argv[])
 
 							//pass in the arguments except the redirection symbol and input file name
 							execvp(validargs[0], validargs);
-							perror("Execvp did not work\n");
+							perror("Cannot understand command!\n");
 							//set exit status to 1	
 							exit(1);
 							break;
@@ -516,7 +567,7 @@ int main(int argc, char* argv[])
 								redirect = dup2(target, 1);
 								if (redirect == -1)
 								{
-									perror("Error with dup2 - output redirection\n");
+									perror("Error with output redirection\n");
 									exit(1);
 								}
 							}
@@ -528,7 +579,7 @@ int main(int argc, char* argv[])
 								redirect = dup2(target, 0);
 								if (redirect == -1)
 								{
-									perror("Error with dup2 - input redirection\n");
+									perror("Error with input redirection\n");
 									exit(1);
 								}
 							}					
@@ -542,7 +593,7 @@ int main(int argc, char* argv[])
 						}
 						// if non-built in command does not exist, display error message
 						// and exit
-						perror("Execvp did not work\n");
+						perror("Cannot understand command!\n");
 						//set exit status to 1
 						exit(1);
 						break;
@@ -621,7 +672,7 @@ int main(int argc, char* argv[])
 					// print out the terminating signal
 					else if (WIFSIGNALED(childExitMethod) != 0)
 					{	
-						printf("background pid %d terminated by signal %d\n", backgroundPids[i], WTERMSIG(childExitMethod));
+						printf("background pid %d is done: terminated by signal %d\n", backgroundPids[i], WTERMSIG(childExitMethod));
 						fflush(stdout);		// flush output buffers after printing
 					}	
 				
