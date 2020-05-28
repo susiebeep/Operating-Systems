@@ -20,11 +20,9 @@ void error(const char *msg) { perror(msg); exit(0); } // Error function used for
  ** Description: Encrypt function
  ** Input(s): 	
  ** Output(s): 	 
- ** Returns: Returns an integer - 0 if encryption was successful, 1 if encryption
-	     was unsuccessful (key file is shorter than the plaintext file, or the
-	     plaintext file contains any bad characters)
+ ** Returns: 
  ** *******************************************************************************/
-int encrypt(char* file, char* key)
+void encrypt(char* file, char* key, char* cipherMsg)
 {
 	// file stream pointer for plaintext file and key file
 	FILE* filePtr;
@@ -115,7 +113,6 @@ int encrypt(char* file, char* key)
 			fileMap[i] = fileArr[i] - 65;
 		}
 	
-		//printf("%d: %d, %d\n", i, keyMap[i], fileMap[i]);	
 	}	
 
 	// sum together each corresponding number in the two arrays then perform a modulus 27 on
@@ -127,34 +124,27 @@ int encrypt(char* file, char* key)
 	{
 		temp = keyMap[i] + fileMap[i];
 		sumMap[i] = temp % 27;
-		printf("%d: %d\n", i, sumMap[i]);
 	}
 	
-	// convert into the ciphertext and write to a file
-	char cipherText[keyLength + 1];
-	FILE* cipherPtr = fopen("ciphertext1", "w+");
+	// convert into the final encrypted message
+	//char cipherMsg[keyLength + 1];
 
 	for (i = 0; i < keyLength; i++)
 	{
-		cipherText[i] = sumMap[i] + 65;
+		cipherMsg[i] = sumMap[i] + 65;
 		
-		// if the char should be a space (which was assigned the value of 26
+		// if the char should be a represented as a space char (which was assigned the value of 26
 		// (26 + 65 = 91)
-		if (cipherText[i] == 91)
+		if (cipherMsg[i] == 91)
 		{
-			cipherText[i] = 32;
+			cipherMsg[i] = 32;
 		}
-		printf("%c", cipherText[i]);
+		printf("%c", cipherMsg[i]);
 	}
 	// add a null terminator and a new line to the end
-	cipherText[keyLength] = '\n';
-	cipherText[keyLength + 1] = '\0';
+	cipherMsg[keyLength] = '\n';
+	cipherMsg[keyLength + 1] = '\0';
 
-	fwrite(cipherText, sizeof(char), sizeof(cipherText), cipherPtr);
-	fclose(cipherPtr);
-
-	// return 0 to indicate that the encryption was performed successfully
-	return 0;
 }
 
 
@@ -179,6 +169,7 @@ int main(int argc, char *argv[])
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
 	char buffer[256];
+
     
 	// allocate memory to hold name of user and store name of user
 	char* user = malloc(32*sizeof(char));
@@ -218,15 +209,10 @@ int main(int argc, char *argv[])
 		// get the name of the file in the current directory holding the key
 		keyFile = argv[4];
 
-		// call encryption function
-		int encryptCheck = encrypt(fileName, keyFile);
+		// call encryption function to generate encrypted message
+		char encryptMsg[256];
+		encrypt(fileName, keyFile, encryptMsg);
 
-		// if an error occurs in the encryption, terminate and send appropriate error text to stderr and set exit value to 1
-		if (encryptCheck != 0)
-		{
-			fprintf(stderr, "CLIENT: Error with encrypting plaintext file\n");
-			exit(1);
-		}
 
 		// Set up the socket
 		socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
@@ -245,6 +231,7 @@ int main(int argc, char *argv[])
 			exit(2);
 		}
 	
+		// store mode, user name and encrypted msg in array and send?
 
 		// Send user name, mode (post or get) and encrypted message to server
 		printf("CLIENT: Sending POST mode info to server:\n");

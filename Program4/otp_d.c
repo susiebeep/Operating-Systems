@@ -2,7 +2,7 @@
  ** Program Name:   Program 4 - Dead Drop (otp_d.c)
  ** Author:         Susan Hibbert
  ** Date:           26th May 2020  			      
- ** Description:    
+ ** Description:    SERVER
  ** *******************************************************************************/
 
 /* ********************************************************************************** 
@@ -23,6 +23,7 @@ void error(const char *msg) { perror(msg); exit(1); } // Error function used for
 
 int main(int argc, char *argv[])
 {
+	int noProcesses = 0;		// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
@@ -51,16 +52,63 @@ int main(int argc, char *argv[])
 	establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
 	if (establishedConnectionFD < 0) error("ERROR on accept");
 
-	// Get the message from the client and display it
-	memset(buffer, '\0', 256);
-	charsRead = recv(establishedConnectionFD, buffer, 255, 0); // Read the client's message from the socket
-	if (charsRead < 0) error("ERROR reading from socket");
-	printf("SERVER: I received this from the client: \"%s\"\n", buffer);
 
-	// Send a Success message back to the client
-	charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
-	if (charsRead < 0) error("ERROR writing to socket");
-	close(establishedConnectionFD); // Close the existing socket which is connected to the client
+	// create child process if currently less than 5 processes running
+
+	if (noProcesses < 5)
+	{
+		pid_t spawnPid = -5;
+		spawnPid = fork();
+		
+		// if an error occurred when forking a child
+		if (spawnPid == -1)
+		{
+			perror("Error spawning child process\n");
+		}		
+		else
+		{
+			// increment the number of processes running (max 5)
+			noProcesses++;
+
+			// first thing the child process must do is sleep for 2 seconds
+			sleep(2);
+		
+			//**************************************************
+			// Get the message from the client and display it
+			memset(buffer, '\0', 256);
+			charsRead = recv(establishedConnectionFD, buffer, 255, 0); // Read the client's message from the socket
+			if (charsRead < 0) error("ERROR reading from socket");
+			printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+		
+			// Send a Success message back to the client
+			charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
+			if (charsRead < 0) error("ERROR writing to socket");
+			
+			close(establishedConnectionFD); // Close the existing socket which is connected to the client
+			noProcesses--;
+
+			// *************************************************			
+
+			//check to see if otp is connecting in post or get mode
+
+			//POST
+			// write the encrypted message to a file and print the path to this file to stdout
+			//FILE* cipherPtr = fopen("ciphertext1", "w+");
+			//fwrite(cipherText, sizeof(char), sizeof(cipherText), cipherPtr);
+			//fclose(cipherPtr);
+
+			//GET
+			// retrieve the contents of the oldest file for the user and send them to otp
+		}		
+
+	}
+	else
+	{		
+		perror("Too many processes running!\n");
+	}
+	
+
 	close(listenSocketFD); // Close the listening socket
+
 	return 0; 
 }
