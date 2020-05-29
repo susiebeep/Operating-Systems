@@ -59,8 +59,6 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	}
 	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
-	// NEED TO REMOVE \N FROM BOTH FILES
-
 	// close the file pointers
 	fclose(filePtr);
 	fclose(keyPtr);
@@ -77,9 +75,8 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	keyLength--;
 	fileLength--;
 	
-
 	// check the length of the key is long enough for the plaintext file
-	if (fileLength != keyLength)
+	if (keyLength < fileLength)
 	{
 		fprintf(stderr, "CLIENT: Plaintext and key files are different lengths\n");
 		exit(1);
@@ -87,11 +84,11 @@ void encrypt(char* file, char* key, char* cipherMsg)
 
 	// create two integer arrays to hold the alphanumeric values of the letters in the key and
 	// plaintext files
-	int keyMap[keyLength];
-	int fileMap[keyLength];
+	int keyMap[fileLength];
+	int fileMap[fileLength];
 	int i;
 	
-	for (i = 0; i < keyLength; i++)
+	for (i = 0; i < fileLength; i++)
 	{
 		// if the character is a space, directly assign it the value 26
 		if (keyArr[i] == 32 || fileArr[i] == 32)
@@ -125,10 +122,10 @@ void encrypt(char* file, char* key, char* cipherMsg)
 
 	// sum together each corresponding number in the two arrays then perform a modulus 27 on
 	// their result sum
-	int sumMap[keyLength];
+	int sumMap[fileLength];
 	int temp = 0;
 
-	for (i = 0; i < keyLength; i++)
+	for (i = 0; i < fileLength; i++)
 	{
 		temp = keyMap[i] + fileMap[i];
 		sumMap[i] = temp % 27;
@@ -136,7 +133,7 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	
 	// convert into the final encrypted message
 
-	for (i = 0; i < keyLength; i++)
+	for (i = 0; i < fileLength; i++)
 	{
 		cipherMsg[i] = sumMap[i] + 65;
 		
@@ -148,7 +145,7 @@ void encrypt(char* file, char* key, char* cipherMsg)
 		}
 	}
 	// add a null terminator to the end
-	cipherMsg[keyLength] = '\0';
+	cipherMsg[fileLength] = '\0';
 
 }
 
@@ -193,7 +190,8 @@ int main(int argc, char *argv[])
 	// POST MODE
 	if (strcmp(mode, "post") == 0)
 	{
-		if (argc < 6) { fprintf(stderr,"Not enough arguments for POST mode\n"); exit(0); } // Check usage & args
+		// Check usage and args
+		if (argc < 6) { fprintf(stderr,"Not enough arguments for POST mode\n"); exit(0); }
 
 		// Set up the server address struct
 		memset((char*)&serverAddress, '\0', sizeof(serverAddress)); 	// Clear out the address struct
@@ -205,8 +203,10 @@ int main(int argc, char *argv[])
 		{
 			fprintf(stderr, "CLIENT: ERROR, no such host\n"); 
 			exit(0);
-		}
-		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length); // Copy in the address
+		} 
+		
+		// Copy in the address
+		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length);
 
 		// get name of file in the current directory which contains the plaintext you want to encrypt
 		fileName = argv[3];
@@ -219,8 +219,8 @@ int main(int argc, char *argv[])
 		encrypt(fileName, keyFile, encryptMsg);
 
 
-		// Set up the socket
-		socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
+		// Create and set up the socket
+		socketFD = socket(AF_INET, SOCK_STREAM, 0);
 		if (socketFD < 0) 
 		{
 			fprintf(stderr, "CLIENT: ERROR opening socket\n");
@@ -228,15 +228,17 @@ int main(int argc, char *argv[])
 		}
 	
 
-		// Connect to server
-		if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to address
+		// Connect socket to address in order to connec to server
+		if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
 		{
-			// if unable to connect to otp_d server, report error to stderr with attempted port and set exit value to 2
+			// if unable to connect to otp_d server, report error to stderr with attempted
+			// port and set exit value to 2
 			fprintf(stderr, "CLIENT: ERROR connecting on port %d\n", portNumber);
 			exit(2);
 		}
 	
-		// concatenate user name, mode and encrypted msg into one string, delimited with '-' character, prior to sending
+		// concatenate user name, mode and encrypted msg into one string, delimited with '-'
+		// character, prior to sending
 		char msgToServer[1024];
 		memset(msgToServer, '\0', sizeof(msgToServer));	
 		strcat(user, "-");
@@ -246,29 +248,21 @@ int main(int argc, char *argv[])
 		strcat(msgToServer, encryptMsg);
 
 		// Send user name, mode and encrypted message to server
-		//printf("CLIENT: Sending POST mode info to server:\n");
 		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer array
 		snprintf(buffer, (sizeof(buffer) - 1), msgToServer); 		// Store message in buffer, trunc to buffer - 1 chars, leaving \0
 
 		charsWritten = send(socketFD, buffer, strlen(buffer), 0); 	// Write to the server
 		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-
-		// Get return message from server
-		//memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer again for reuse
-		//charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);	// Read data from the socket, leaving \0 at end
-		//if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-		//printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
 	
 	}
 
 	// **************************************************************************************************	
 	// GET MODE	
 	else if (strcmp(mode, "get") == 0)
-	{
-		// get mode
-		
-		if (argc < 5) { fprintf(stderr,"Not enough arguments for GET mode\n"); exit(0); } // Check usage & args
+	{	
+		// Check usage and args
+		if (argc < 5) { fprintf(stderr,"Not enough arguments for GET mode\n"); exit(0); }
 		
 		// Set up the server address struct
 		memset((char*)&serverAddress, '\0', sizeof(serverAddress)); 	// Clear out the address struct
@@ -281,44 +275,47 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "CLIENT: ERROR, no such host\n"); 
 			exit(0); 
 		}
-		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length); // Copy in the address
 		
-		// get the name of the file in the current directory holding the key
+		// Copy in the address
+		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length);
+		
+		// get the name of the key file in the current directory holding the key
 		keyFile = argv[3];
 
-		// send a request for a message for user
-		// call decrypt to decrypt the message and print the decrypted message to stdout
-		// if user does not have a message, display an error message to stderr
-		
-		// Set up the socket
-		socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
+		// Create and set up the socket
+		socketFD = socket(AF_INET, SOCK_STREAM, 0); 
 		if (socketFD < 0)
 		{
 			fprintf(stderr, "CLIENT: ERROR opening socket\n");
 			exit(0);
 		}
 	
-		// Connect to server
-		if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to address
+		// Connect socket to address in order to connect to server
+		if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) 
 		{
-			// if unable to connect to otp_d server, report error to stderr with attempted port and set exit value to 2
+			// if unable to connect to otp_d server, report error to stderr with attempted port
+			// and set exit value to 2
 			fprintf(stderr, "CLIENT: ERROR connecting on port %d\n", portNumber);
 			exit(2);
 		}
+		
+		// concatenate user name and mode into one string, delimited by '-' character, before sending to
+		// server
+		char msgToServer[1024];
+		memset(msgToServer, '\0', sizeof(msgToServer));	
+		strcat(user, "-");
+		strcat(msgToServer, user);
+		strcat(msgToServer, mode);
 
-
-		// Get input message from user
-		printf("CLIENT: Enter text to send to the server, and then hit enter: ");
-		memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer array
-		fgets(buffer, sizeof(buffer) - 1, stdin); // Get input from the user, trunc to buffer - 1 chars, leaving \0
-		buffer[strcspn(buffer, "\n")] = '\0'; // Remove the trailing \n that fgets adds
-
-		// Send message to server
-		charsWritten = send(socketFD, buffer, strlen(buffer), 0); // Write to the server
+		// Send user name and mode to server
+		charsWritten = send(socketFD, msgToServer, strlen(msgToServer), 0);
 		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
-		// Get return message from server
+
+		// Get return message from server which sends the oldest file for this user which will be
+		// decrypted by the client using the key and print the decrypted message to stdout
+		//
 		//memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 		//charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
 		//if (charsRead < 0) error("CLIENT: ERROR reading from socket");
