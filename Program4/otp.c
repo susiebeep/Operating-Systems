@@ -59,8 +59,6 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	}
 	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
-	printf("length of file = %d\n", strlen(fileArr));
-	printf("length of key = %d\n", strlen(keyArr));
 
 	// close the file pointers
 	fclose(filePtr);
@@ -168,7 +166,7 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[256];
+	char buffer[1024];
 
     
 	// allocate memory to hold name of user and store name of user
@@ -231,12 +229,20 @@ int main(int argc, char *argv[])
 			exit(2);
 		}
 	
-		// store mode, user name and encrypted msg in array and send?
+		// concatenate user name, mode and encrypted msg into one string, delimited with '-' character, prior to sending
+		char msgToServer[1024];
+		memset(msgToServer, '\0', sizeof(msgToServer));	
+		strcat(user, "-");
+		strcat(msgToServer, user);
+		strcat(mode, "-");
+		strcat(msgToServer, mode);
+		strcat(msgToServer, encryptMsg);
+		printf("\nSending to server %s\n", msgToServer);
 
-		// Send user name, mode (post or get) and encrypted message to server
+		// Send user name, mode and encrypted message to server
 		printf("CLIENT: Sending POST mode info to server:\n");
 		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer array
-		snprintf(buffer, (sizeof(buffer) - 1), user); 			// Store name of user in buffer, trunc to buffer - 1 chars, leaving \0
+		snprintf(buffer, (sizeof(buffer) - 1), msgToServer); 		// Store message in buffer, trunc to buffer - 1 chars, leaving \0
 
 		// Send message to server
 		charsWritten = send(socketFD, buffer, strlen(buffer), 0); 	// Write to the server
