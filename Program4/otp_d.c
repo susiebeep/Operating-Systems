@@ -18,11 +18,16 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <time.h>
+#include <dirent.h>
+#include <fcntl.h>
+
 
 void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
 int main(int argc, char *argv[])
 {
+	srand(time(0));			// seed random number generator - used later when creating files
 	int noProcesses = 0;		// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
@@ -78,11 +83,11 @@ int main(int argc, char *argv[])
 			memset(buffer, '\0', 256);
 			charsRead = recv(establishedConnectionFD, buffer, 255, 0); // Read the client's message from the socket
 			if (charsRead < 0) error("ERROR reading from socket");
-			printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+			//printf("SERVER: I received this from the client: \"%s\"\n", buffer);
 		
 			// Send a Success message back to the client
-			charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
-			if (charsRead < 0) error("ERROR writing to socket");
+			//charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
+			//if (charsRead < 0) error("ERROR writing to socket");
 			
 
 			// *************************************************			
@@ -120,11 +125,39 @@ int main(int argc, char *argv[])
 			int msgLength = strlen(encryptedMsg);
 			encryptedMsg[msgLength] = '\n';
 					
+			// create and open a directory for the user
+			mkdir(user, 0755);
+			DIR* userDir = opendir(user);
+			
+			// file name to store encrypted message
+			char cipherText[64];
+			char* fileName = "cipherText";
+
+			// generate a random number between 0 and 100 and append to the end of the file name
+			int randNo = rand() % 100;
+			sprintf(cipherText, "%s%d", fileName, randNo);
+
+			// create a filepath variable and store the path to the user's directory
+			char* filepath = malloc(128*sizeof(char));
+			sprintf(filepath, "./%s/%s", user, cipherText);
+			int filedescriptor = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0600);
+			
+			// write the encrypted message to a file
+			write(filedescriptor, encryptedMsg, strlen(encryptedMsg)*sizeof(char));		
 	
-			// write the encrypted message to a file and print the path to this file to stdout
-			FILE* cipherPtr = fopen("ciphertext1", "w+");
-			fwrite(encryptedMsg, sizeof(char), sizeof(encryptedMsg), cipherPtr);
-			fclose(cipherPtr);
+			// print the path to the encrypted file	
+			printf("%s\n", filepath);
+			
+			// reset the file pointer back to the beginning of the file
+			lseek(filedescriptor, 0, SEEK_SET);
+
+			// close the user directory
+			closedir(userDir);
+		
+	
+			//FILE* cipherPtr = fopen("ciphertext1", "w+");
+			//fwrite(encryptedMsg, sizeof(char), sizeof(encryptedMsg), cipherPtr);
+			//fclose(cipherPtr);
 
 			//GET
 			// retrieve the contents of the oldest file for the user and send them to otp

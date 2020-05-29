@@ -146,11 +146,9 @@ void encrypt(char* file, char* key, char* cipherMsg)
 		{
 			cipherMsg[i] = 32;
 		}
-		printf("%c", cipherMsg[i]);
 	}
 	// add a null terminator to the end
 	cipherMsg[keyLength] = '\0';
-	//cipherMsg[keyLength + 1] = '\0';
 
 }
 
@@ -246,23 +244,21 @@ int main(int argc, char *argv[])
 		strcat(mode, "-");
 		strcat(msgToServer, mode);
 		strcat(msgToServer, encryptMsg);
-		printf("\nSending to server %s\n", msgToServer);
 
 		// Send user name, mode and encrypted message to server
-		printf("CLIENT: Sending POST mode info to server:\n");
+		//printf("CLIENT: Sending POST mode info to server:\n");
 		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer array
 		snprintf(buffer, (sizeof(buffer) - 1), msgToServer); 		// Store message in buffer, trunc to buffer - 1 chars, leaving \0
 
-		// Send message to server
 		charsWritten = send(socketFD, buffer, strlen(buffer), 0); 	// Write to the server
 		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
 		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
 		// Get return message from server
-		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer again for reuse
-		charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);	// Read data from the socket, leaving \0 at end
-		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-		printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
+		//memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer again for reuse
+		//charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);	// Read data from the socket, leaving \0 at end
+		//if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+		//printf("CLIENT: I received this from the server: \"%s\"\n", buffer);
 	
 	}
 
@@ -323,10 +319,10 @@ int main(int argc, char *argv[])
 		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
 		// Get return message from server
-		memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-		charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
-		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-		printf("CLIENT: I received this from the server: \"%s\"\n", buffer);	
+		//memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
+		//charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+		//if (charsRead < 0) error("CLIENT: ERROR reading from socket");
+		//printf("CLIENT: I received this from the server: \"%s\"\n", buffer);	
 	}
 
 	// **************************************************************************************************
