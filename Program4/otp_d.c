@@ -57,16 +57,16 @@ int main(int argc, char *argv[])
 
 	if (noProcesses < 5)
 	{
-		pid_t spawnPid = -5;
-		spawnPid = fork();
+		//pid_t spawnPid = -5;
+		//spawnPid = fork();
 		
 		// if an error occurred when forking a child
-		if (spawnPid == -1)
-		{
-			perror("Error spawning child process\n");
-		}		
-		else
-		{
+		//if (spawnPid == -1)
+		//{
+		//	perror("Error spawning child process\n");
+		//}		
+		//else
+		//{
 			// increment the number of processes running (max 5)
 			noProcesses++;
 
@@ -84,22 +84,53 @@ int main(int argc, char *argv[])
 			charsRead = send(establishedConnectionFD, "I am the server, and I got your message", 39, 0); // Send success back
 			if (charsRead < 0) error("ERROR writing to socket");
 			
-			close(establishedConnectionFD); // Close the existing socket which is connected to the client
-			noProcesses--;
 
 			// *************************************************			
 
-			//check to see if otp is connecting in post or get mode
+			// extract mode, user and encrypted message sent by the client
+			char mode[16];
+			char user[32];
+			char encryptedMsg[1024];
+			memset(encryptedMsg, '\0', sizeof(encryptedMsg));
+			char* token;
 
+			token = strtok(buffer, "-");
+			int field = 0;
+
+			while (token != NULL)
+			{
+				if (field == 0)
+				{
+					strcpy(user, token);
+				}
+				else if (field == 1)
+				{
+					strcpy(mode, token);
+				}
+				else if (field == 2)
+				{
+					strcpy(encryptedMsg, token);
+				}
+				field++;
+				token = strtok(NULL, "-");		
+			}
 			//POST
+			// add a null terminator and newline to end of encrypted message, so the encrypted
+			// text file ends with a newline character
+			int msgLength = strlen(encryptedMsg);
+			encryptedMsg[msgLength] = '\n';
+					
+	
 			// write the encrypted message to a file and print the path to this file to stdout
-			//FILE* cipherPtr = fopen("ciphertext1", "w+");
-			//fwrite(cipherText, sizeof(char), sizeof(cipherText), cipherPtr);
-			//fclose(cipherPtr);
+			FILE* cipherPtr = fopen("ciphertext1", "w+");
+			fwrite(encryptedMsg, sizeof(char), sizeof(encryptedMsg), cipherPtr);
+			fclose(cipherPtr);
 
 			//GET
 			// retrieve the contents of the oldest file for the user and send them to otp
-		}		
+			close(establishedConnectionFD); // Close the existing socket which is connected to the client
+			noProcesses--;
+		//}		
 
 	}
 	else
@@ -108,6 +139,7 @@ int main(int argc, char *argv[])
 	}
 	
 
+	close(establishedConnectionFD); // Close the existing socket which is connected to the client
 	close(listenSocketFD); // Close the listening socket
 
 	return 0; 

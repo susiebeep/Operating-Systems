@@ -59,6 +59,7 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	}
 	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
+	// NEED TO REMOVE \N FROM BOTH FILES
 
 	// close the file pointers
 	fclose(filePtr);
@@ -68,6 +69,15 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
 	
+	// strip off the newline chars at the end of both files
+	keyArr[keyLength - 1] = '\0';	
+	fileArr[fileLength - 1] = '\0';	
+
+	// subtract one from the length of both files after removing the newline char
+	keyLength--;
+	fileLength--;
+	
+
 	// check the length of the key is long enough for the plaintext file
 	if (fileLength != keyLength)
 	{
@@ -125,7 +135,6 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	}
 	
 	// convert into the final encrypted message
-	//char cipherMsg[keyLength + 1];
 
 	for (i = 0; i < keyLength; i++)
 	{
@@ -139,9 +148,9 @@ void encrypt(char* file, char* key, char* cipherMsg)
 		}
 		printf("%c", cipherMsg[i]);
 	}
-	// add a null terminator and a new line to the end
-	cipherMsg[keyLength] = '\n';
-	cipherMsg[keyLength + 1] = '\0';
+	// add a null terminator to the end
+	cipherMsg[keyLength] = '\0';
+	//cipherMsg[keyLength + 1] = '\0';
 
 }
 
