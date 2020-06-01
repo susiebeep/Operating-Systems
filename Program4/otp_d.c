@@ -5,12 +5,7 @@
  ** Description:    SERVER
  ** *******************************************************************************/
 
-/* ********************************************************************************** 
- ** Description:
- ** Input(s): 	
- ** Output(s): 	 
- ** Returns: 
- ** *******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +23,7 @@ void error(const char *msg) { perror(msg); exit(1); } // Error function used for
 int main(int argc, char *argv[])
 {
 	srand(time(0));			// seed random number generator - used later when creating files
-	int noProcesses = 0;		// to keep track of the number of child processes (max 5)
+	//int noProcesses = 0;		// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
@@ -53,36 +48,35 @@ int main(int argc, char *argv[])
 	listen(listenSocketFD, 5); // Flip the socket on - it can now receive up to 5 connections
 
 	// Accept a connection, blocking if one is not available until one connects
-	sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
-	establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
-	if (establishedConnectionFD < 0) error("ERROR on accept");
-
-
-	// create child process if currently less than 5 processes running
-	if (noProcesses < 5)
+	while(1)
 	{
-		//pid_t spawnPid = -5;
-		//spawnPid = fork();
-		
-		// if an error occurred when forking a child
-		//if (spawnPid == -1)
-		//{
-		//	perror("Error spawning child process\n");
-		//}		
-		//else
-		//{
-			// increment the number of processes running (max 5)
-			noProcesses++;
+		sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
+		establishedConnectionFD = accept(listenSocketFD, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
+		if (establishedConnectionFD < 0) error("ERROR on accept");
 
-			// first thing the child process must do is sleep for 2 seconds
+		// create a child process
+		pid_t spawnPid = -5;
+		spawnPid = fork();
+	
+		// if an error occurred when forking a child
+		if (spawnPid == -1)
+		{
+			perror("Error spawning child process\n");
+		}		
+		else if (spawnPid == 0)
+		{
+			// Child process closes the listening socket
+			close(listenSocketFD); 
+
+			// Child process sleeps for 2 seconds
 			sleep(2);
-		
+
 			// Read the client's message from the socket
 			memset(buffer, '\0', 256);
 			charsRead = recv(establishedConnectionFD, buffer, 255, 0);
 			if (charsRead < 0) error("ERROR reading from socket");
 
-			// extract mode, user and encrypted message sent by the client
+			// Extract mode, user and encrypted message sent by the client
 			char mode[16];
 			char user[32];
 			char encryptedMsg[1024];
@@ -117,11 +111,11 @@ int main(int argc, char *argv[])
 				// text file ends with a newline character as per the specifications
 				int msgLength = strlen(encryptedMsg);
 				encryptedMsg[msgLength] = '\n';
-					
+				
 				// create and open a directory for the user
 				mkdir(user, 0755);
 				DIR* userDir = opendir(user);
-			
+		
 				// file name to store encrypted message
 				char cipherText[64];
 				char* fileName = "cipherText";
@@ -140,12 +134,16 @@ int main(int argc, char *argv[])
 	
 				// print the path to the encrypted file	
 				printf("%s\n", filepath);
-			
+				fflush(stdout);
+					
 				// reset the file pointer back to the beginning of the file
 				lseek(filedescriptor, 0, SEEK_SET);
 
 				// close the user directory
 				closedir(userDir);
+
+				// exit from the child process
+				exit(0);
 			}	
 	
 			// *******************************************************************************************
@@ -154,22 +152,17 @@ int main(int argc, char *argv[])
 			{
 			// retrieve the contents of the oldest file for the user and send them to otp
 			// then delete the ciphertext file
+				exit(0);
 			}
+		}	
 			
-			// Close the existing socket which is connected to the client
-			close(establishedConnectionFD); 
-			noProcesses--;
-		//}		
+		// if spawnPid is not equal to 0	
+		else
+		{
+			close(establishedConnectionFD);
+		}	
 
-	}
-	else
-	{		
-		perror("Too many processes running!\n");
 	}
 	
-	// Close the existing socket which is connected to the client
-	close(establishedConnectionFD);
-	close(listenSocketFD); // Close the listening socket
-
-	return 0; 
+	return 0;
 }
