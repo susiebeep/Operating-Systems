@@ -66,14 +66,20 @@ void childCon(int newConnFD)
 		field++;
 		token = strtok(NULL, "-");		
 	}
+
 	// *******************************************************************************************
 	// POST MODE
 	if (strcmp(mode, "post") == 0)
 	{
-		// add a newline char to end of encrypted message, so the encrypted
+		// create a copy of the encrypted message with a newline char at the end, so the encrypted
 		// text file ends with a newline character as per the specifications
 		int msgLength = strlen(encryptedMsg);
-		encryptedMsg[msgLength] = '\n';
+		char* encryptedMsg1 = malloc(msgLength + 2);
+		strcpy(encryptedMsg1, encryptedMsg);
+		strcat(encryptedMsg1, "\n");
+
+		//printf("encrypted msg received at server plus newline = %s", encryptedMsg1);
+		//fflush(stdout);
 		
 		// create and open a directory for the user
 		mkdir(user, 0755);
@@ -93,10 +99,10 @@ void childCon(int newConnFD)
 		int filedescriptor = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	
 		// write the encrypted message to a file
-		write(filedescriptor, encryptedMsg, strlen(encryptedMsg)*sizeof(char));		
+		write(filedescriptor, encryptedMsg1, strlen(encryptedMsg1)*sizeof(char));		
 
 		// print the path to the encrypted file	
-		printf("\n%s\n", filepath);
+		printf("%s\n", filepath);
 		fflush(stdout);
 			
 		// reset the file pointer back to the beginning of the file

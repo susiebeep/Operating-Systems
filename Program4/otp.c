@@ -67,14 +67,6 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
 	
-	// strip off the newline chars at the end of both files
-	keyArr[keyLength - 1] = '\0';	
-	fileArr[fileLength - 1] = '\0';	
-
-	// subtract one from the length of both files after removing the newline char
-	keyLength--;
-	fileLength--;
-	
 	// check the length of the key is long enough for the plaintext file, if the key is too
 	// short return to main function
 	if (keyLength < fileLength)
@@ -164,7 +156,7 @@ int encrypt(char* file, char* key, char* cipherMsg)
  ** Description: Main function
  ** Input(s): 	
  ** Output(s): 	 
- ** Returns: 
+ ** Return: 
  ** *******************************************************************************/
 int main(int argc, char *argv[])
 {
