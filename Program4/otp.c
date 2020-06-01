@@ -22,7 +22,7 @@ void error(const char *msg) { perror(msg); exit(0); } // Error function used for
  ** Output(s): 	 
  ** Returns: 
  ** *******************************************************************************/
-void encrypt(char* file, char* key, char* cipherMsg)
+int encrypt(char* file, char* key, char* cipherMsg)
 {
 	// file stream pointer for plaintext file and key file
 	FILE* filePtr;
@@ -75,11 +75,11 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	keyLength--;
 	fileLength--;
 	
-	// check the length of the key is long enough for the plaintext file
+	// check the length of the key is long enough for the plaintext file, if the key is too
+	// short return to main function
 	if (keyLength < fileLength)
 	{
-		fprintf(stderr, "CLIENT: Plaintext and key files are different lengths\n");
-		exit(1);
+		return 1;
 	}
 
 	// create two integer arrays to hold the alphanumeric values of the letters in the key and
@@ -147,6 +147,7 @@ void encrypt(char* file, char* key, char* cipherMsg)
 	// add a null terminator to the end
 	cipherMsg[fileLength] = '\0';
 
+	return 0;
 }
 
 
@@ -216,45 +217,52 @@ int main(int argc, char *argv[])
 
 		// call encryption function to generate encrypted message
 		char encryptMsg[256];
-		encrypt(fileName, keyFile, encryptMsg);
+		int encryptSuccess = encrypt(fileName, keyFile, encryptMsg);
 
-
-		// Create and set up the socket
-		socketFD = socket(AF_INET, SOCK_STREAM, 0);
-		if (socketFD < 0) 
+		// if there was an error with the encrption, terminate and set the exit value to 1		
+		if (encryptSuccess == 1)
 		{
-			fprintf(stderr, "CLIENT: ERROR opening socket\n");
-			exit(0);
+			fprintf(stderr, "CLIENT: Plaintext and key files are different lengths\n");
+			exit(1);
 		}
-	
-
-		// Connect socket to address in order to connec to server
-		if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
+		
+		else
 		{
-			// if unable to connect to otp_d server, report error to stderr with attempted
-			// port and set exit value to 2
-			fprintf(stderr, "CLIENT: ERROR connecting on port %d\n", portNumber);
-			exit(2);
+			// Create and set up the socket
+			socketFD = socket(AF_INET, SOCK_STREAM, 0);
+			if (socketFD < 0) 
+			{
+				fprintf(stderr, "CLIENT: ERROR opening socket\n");
+				exit(0);
+			}
+
+			// Connect socket to address in order to connec to server
+			if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
+			{
+				// if unable to connect to otp_d server, report error to stderr with attempted
+				// port and set exit value to 2
+				fprintf(stderr, "CLIENT: ERROR connecting on port %d\n", portNumber);
+				exit(2);
+			}
+	
+			// concatenate user name, mode and encrypted msg into one string, delimited with '-'
+			// character, prior to sending
+			char msgToServer[1024];
+			memset(msgToServer, '\0', sizeof(msgToServer));	
+			strcat(user, "-");
+			strcat(msgToServer, user);
+			strcat(mode, "-");
+			strcat(msgToServer, mode);
+			strcat(msgToServer, encryptMsg);
+
+			// Send user name, mode and encrypted message to server
+			memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer array
+			snprintf(buffer, (sizeof(buffer) - 1), msgToServer); 		// Store message in buffer, trunc to buffer - 1 chars, leaving \0
+
+			charsWritten = send(socketFD, buffer, strlen(buffer), 0); 	// Write to the server
+			if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
+			if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 		}
-	
-		// concatenate user name, mode and encrypted msg into one string, delimited with '-'
-		// character, prior to sending
-		char msgToServer[1024];
-		memset(msgToServer, '\0', sizeof(msgToServer));	
-		strcat(user, "-");
-		strcat(msgToServer, user);
-		strcat(mode, "-");
-		strcat(msgToServer, mode);
-		strcat(msgToServer, encryptMsg);
-
-		// Send user name, mode and encrypted message to server
-		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer array
-		snprintf(buffer, (sizeof(buffer) - 1), msgToServer); 		// Store message in buffer, trunc to buffer - 1 chars, leaving \0
-
-		charsWritten = send(socketFD, buffer, strlen(buffer), 0); 	// Write to the server
-		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
-	
 	}
 
 	// **************************************************************************************************	
