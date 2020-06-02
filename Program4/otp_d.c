@@ -117,8 +117,85 @@ void childCon(int newConnFD)
 	{
 	// retrieve the contents of the oldest file for the user and send them to otp
 	// then delete the ciphertext file
-	}			
+	
+		time_t oldestTime = time(0);				// get current time to initialize oldestTime variable
+		
+		DIR* userDir = opendir(user);				// open user's directory
+		struct dirent* userFile;				// holds information about a file in user's directory
+		struct stat fileStats;					// hold stats about userFile
+		char* oldestFile = malloc(sizeof(char)*1024);		// holds the name of the oldest file
+		memset(oldestFile, '\0', sizeof(oldestFile));
+		char fullpath[1024];
 
+
+		// if user's directory can be opened
+		if (userDir > 0)
+		{
+			// check each file in the directory
+			while((userFile = readdir(userDir)) != NULL)
+			{
+				// store full path to file in user's directory
+				sprintf(fullpath, "./%s/%s", user, userFile->d_name);
+
+				// get stats about the file and store in fileStats struct
+				stat(fullpath, &fileStats);
+		
+				// if the timestamp on this file is the oldest so far, save
+				// its name and timestamp
+				if ((int)fileStats.st_mtime < oldestTime)
+				{
+					oldestTime = fileStats.st_mtime;			
+					strcpy(oldestFile, fullpath);
+				}
+			}
+		}
+		// close user directory
+		closedir(userDir);
+		
+		printf("Oldest file name is %s, time %s\n", oldestFile, ctime(&oldestTime));
+		fflush(stdout);
+
+		// store the contents of the oldest file in a string and send back to client
+		FILE *filePtr;		// file stream pointer for encrypted file
+		char fileToClient[1024];
+
+		// open the oldest file for reading
+		filePtr = fopen(oldestFile, "r");
+	
+		// holds a line of the file as it is read in
+		char line[256];
+
+		// if error opening the file
+		if (filePtr == NULL)
+		{
+			fprintf(stderr, "SERVER: Error opening user file\n");
+			exit(1);
+		}
+		// read the file into its array until reach end of file
+		while(fgets(line, sizeof(line), filePtr) != NULL)
+		{
+			sprintf(fileToClient, line);
+		}
+		// remove the trailing '\n' that fgets adds
+		fileToClient[strcspn(fileToClient, "\n")] = '\0';
+	
+		// close the file pointer
+		fclose(filePtr);
+
+		printf("sending file contents %s", fileToClient);
+		fflush(stdout);
+
+		// set encrypted file contents to client
+		charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
+		
+		if (charsRead < 0) perror("ERROR writing to socket\n");	
+		
+		// delete the encrypted file just sent to the client
+	
+	}		
+
+	// close existing socket which is connected to the client	
+	close(newConnFD);
 }
 
 
@@ -131,31 +208,32 @@ void childCon(int newConnFD)
 
 int main(int argc, char *argv[])
 {
-	srand(time(0));			// seed random number generator - used later when creating files
-	//int noProcesses = 0;		// to keep track of the number of child processes (max 5)
+	srand(time(0));							// seed random number generator - used later when creating files
+	//int noProcesses = 0;						// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[256];
 	struct sockaddr_in serverAddress, clientAddress;
 
-	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); } // Check usage & args
+	// Check usage and args
+	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); }
 
 	// Set up the address struct for this process (the server)
-	memset((char *)&serverAddress, '\0', sizeof(serverAddress)); // Clear out the address struct
-	portNumber = atoi(argv[1]); // Get the port number, convert to an integer from a string
-	serverAddress.sin_family = AF_INET; // Create a network-capable socket
-	serverAddress.sin_port = htons(portNumber); // Store the port number
-	serverAddress.sin_addr.s_addr = INADDR_ANY; // Any address is allowed for connection to this process
+	memset((char *)&serverAddress, '\0', sizeof(serverAddress)); 	// Clear out the address struct
+	portNumber = atoi(argv[1]); 					// Get the port number, convert to an integer from a string
+	serverAddress.sin_family = AF_INET; 				// Create a network-capable socket
+	serverAddress.sin_port = htons(portNumber); 			// Store the port number
+	serverAddress.sin_addr.s_addr = INADDR_ANY; 			// Any address is allowed for connection to this process
 
-	// Set up the socket
-	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); // Create the socket
+	// Create and set up the socket
+	listenSocketFD = socket(AF_INET, SOCK_STREAM, 0); 
 	if (listenSocketFD < 0) error("ERROR opening socket");
 
-	// Enable the socket to begin listening
-	if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) // Connect socket to port
+	// Enable the socket to begin listening and connect socket to port
+	if (bind(listenSocketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
 		error("ERROR on binding");
-	listen(listenSocketFD, 5); // Flip the socket on - it can now receive up to 5 connections
-	sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
+	listen(listenSocketFD, 5); 					// Flip the socket on - it can now receive up to 5 connections
+	sizeOfClientInfo = sizeof(clientAddress); 			// Get the size of the address for the client that will connect
 
 
 	// Accept a connection, blocking if one is not available until one connects
@@ -181,7 +259,7 @@ int main(int argc, char *argv[])
 			// pass file descriptor of new connection as argument
 			childCon(establishedConnectionFD);
 
-			// exit oncechild process returns and re-enter outer infinite while loop
+			// exit once child process returns and re-enter outer infinite while loop
 			exit(0);	
 	
 		}		
