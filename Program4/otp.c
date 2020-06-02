@@ -29,11 +29,11 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	FILE* keyPtr;
 
 	// char arrays to hold the file and key contents
-	char fileArr[256];
-	char keyArr[256];
+	char fileArr[1024];
+	char keyArr[1024];
 	
 	// hold a line of the file as it is read in
-	char line[256];
+	char line[1024];
 
 	// open the two files
 	filePtr = fopen(file, "r");
@@ -120,6 +120,11 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	for (i = 0; i < fileLength; i++)
 	{
 		temp = keyMap[i] + fileMap[i];
+		// if the number is larger than 26 then the remainder, after subtracting 27, is taken
+		if (temp > 27)
+		{
+			temp -= 27;	
+		}
 		sumMap[i] = temp % 27;
 	}
 	
@@ -129,8 +134,8 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	{
 		cipherMsg[i] = sumMap[i] + 65;
 		
-		// if the char should be a represented as a space char (which was assigned the value of 26
-		// (26 + 65 = 91)
+		// if the char should be a represented as a space char (which was assigned the value of 26 -
+		// 26 + 65 = 91)
 		if (cipherMsg[i] == 91)
 		{
 			cipherMsg[i] = 32;
@@ -149,9 +154,134 @@ int encrypt(char* file, char* key, char* cipherMsg)
  ** Output(s): 	 
  ** Returns: 
  ** *******************************************************************************/
+int decrypt(char* encryptedTxt, char* key1)
+{	
+	// file stream pointer for key file
+	FILE* keyPtr;
+
+	// char array to hold contents of key file
+	char keyArr[1024];
+	char line[1024];	
+
+	// open key file
+	keyPtr = fopen(key1, "r");
+
+	// if there is an error opening the key file
+	if (keyPtr == NULL)
+	{
+		fprintf(stderr, "CLIENT: Error opening key file\n");	
+		exit(1);
+	}
+
+	// read contents of key file into char array
+	while(fgets(line, sizeof(line), keyPtr) != NULL)
+	{
+		sprintf(keyArr, line);
+	}
+	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
+	
+	// close file pointer
+	fclose(keyPtr);
+
+	//printf("keyArr %s\n", keyArr);
+	//fflush(stdout);
+
+	//printf("encrypted Text %s\n", encryptedTxt);
+	//fflush(stdout);
+
+	// get size of encrypted text and key
+	int msgLength = strlen(encryptedTxt);
+	int keyLength = strlen(keyArr);
+
+	// check the length of the key is long enough for the encrypted message, if the key is too
+	// short return to main function
+	if (keyLength < msgLength)
+	{
+		return 1;
+	}
+	// create integer arrays to hold alphanumeric values of letters in the encrypted text and key
+	int msgMap[msgLength];
+	int keyMap[msgLength];
+	int i;
+
+	for (i = 0; i < msgLength; i++)
+	{
+		// if the character is a space, directly assign it the value 26
+		if (encryptedTxt[i] == 32 || keyArr[i] == 32)
+		{
+			if (encryptedTxt[i] == 32 && keyArr[i] == 32)
+			{
+				keyMap[i] = 26;
+				msgMap[i] = 26;
+			}
+			else if (keyArr[i] == 32)
+			{
+				keyMap[i] = 26;
+				msgMap[i] = encryptedTxt[i] - 65;
+			}
+			else
+			{
+				msgMap[i] = 26;
+				keyMap[i] = keyArr[i] - 65;
+			}
+		}
+		else
+		{
+			// subtract 63 from each char's decimal ASCII value to get its
+			// alphanumeric value (A = 0; B = 1 etc) and store in integer array
+			msgMap[i] = encryptedTxt[i] - 65;
+			keyMap[i] = keyArr[i] - 65;
+		}
+	
+		//printf("msgMap %d, %d\n", i, msgMap[i]);
+		//fflush(stdout);
+		//printf("keyMap %d, %d\n", i, keyMap[i]);
+		//fflush(stdout);
+	}
 
 
+	// subtract each corresponding number in the key from the encrypted text and perform
+	// modulus 27 on the resultant value
+	int minusMap[msgLength];
+	int temp = 0;
 
+	for (i = 0; i < msgLength; i++)
+	{
+		temp = msgMap[i] - keyMap[i];
+		
+		// if the subtraction results in a negative number, add 27 to make the number 0 or higher
+		if (temp < 0)
+		{
+			temp += 27;
+		} 
+		minusMap[i] = temp % 27;
+	}	
+
+	
+	// convert into final uncrypted message
+	char finalMsg[256];
+
+	for (i = 0; i < msgLength; i++)
+	{
+		finalMsg[i] = minusMap[i] + 65;
+		
+		// if the char should be a space character (which was assigned the value of 26 -
+		// 26 + 65 = 91)
+		if (finalMsg[i] == 91)
+		{
+			finalMsg[i] = 32;
+		}
+	}
+	// add a newline and null terminator to the end
+	finalMsg[msgLength] = '\n';
+	finalMsg[msgLength + 1] = '\0';
+
+	// print decrypted message to stdout
+	printf("%s", finalMsg);
+	fflush(stdout);
+
+	return 0;
+}
 /* ********************************************************************************** 
  ** Description: Main function
  ** Input(s): 	
@@ -202,16 +332,16 @@ int main(int argc, char *argv[])
 		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length);
 
 		// get name of file in the current directory which contains the plaintext you want to encrypt
-		fileName = argv[3];
+		strcpy(fileName,argv[3]);
 
 		// get the name of the file in the current directory holding the key
-		keyFile = argv[4];
+		strcpy(keyFile, argv[4]);
 
 		// call encryption function to generate encrypted message
 		char encryptMsg[256];
 		int encryptSuccess = encrypt(fileName, keyFile, encryptMsg);
 
-		// if there was an error with the encrption, terminate and set the exit value to 1		
+		// if there was an error with the encryption, terminate and set the exit value to 1		
 		if (encryptSuccess == 1)
 		{
 			fprintf(stderr, "CLIENT: Plaintext and key files are different lengths\n");
@@ -263,7 +393,7 @@ int main(int argc, char *argv[])
 	{	
 		// Check usage and args
 		if (argc < 5) { fprintf(stderr,"Not enough arguments for GET mode\n"); exit(0); }
-		
+			
 		// Set up the server address struct
 		memset((char*)&serverAddress, '\0', sizeof(serverAddress)); 	// Clear out the address struct
 		portNumber = atoi(argv[4]); 					// Get the port number, convert to an integer from a string
@@ -280,7 +410,7 @@ int main(int argc, char *argv[])
 		memcpy((char*)&serverAddress.sin_addr.s_addr, (char*)serverHostInfo->h_addr, serverHostInfo->h_length);
 		
 		// get the name of the key file in the current directory holding the key
-		keyFile = argv[3];
+		strcpy(keyFile, argv[3]);
 
 		// Create and set up the socket
 		socketFD = socket(AF_INET, SOCK_STREAM, 0); 
@@ -310,7 +440,7 @@ int main(int argc, char *argv[])
 		// Send user name and mode to server
 		charsWritten = send(socketFD, msgToServer, strlen(msgToServer), 0);
 		if (charsWritten < 0) error("CLIENT: ERROR writing to socket");
-		if (charsWritten < strlen(buffer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
+		if (charsWritten < strlen(msgToServer)) printf("CLIENT: WARNING: Not all data written to socket!\n");
 
 
 		// Get return message from server which sends the oldest file for this user which will be
@@ -319,7 +449,17 @@ int main(int argc, char *argv[])
 		memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
 		charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
 		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
-		printf("CLIENT: I received this from the server: \"%s", buffer);	
+
+		// pass encrypted text received from server to decrypt function
+		int decryptSuccess = decrypt(buffer, keyFile);
+	
+	
+		// if there was an error with the decryption, terminate and set the exit value to 1		
+		if (decryptSuccess == 1)
+		{
+			fprintf(stderr, "CLIENT: Encrypted text and key are different lengths\n");
+			exit(1);
+		}
 	}
 
 	// **************************************************************************************************

@@ -152,9 +152,10 @@ void childCon(int newConnFD)
 		// close user directory
 		closedir(userDir);
 		
-		printf("Oldest file name is %s, time %s\n", oldestFile, ctime(&oldestTime));
-		fflush(stdout);
+		printf("oldest file name %s\n", oldestFile);
+		fflush(stdout);	
 
+	
 		// store the contents of the oldest file in a string and send back to client
 		FILE *filePtr;		// file stream pointer for encrypted file
 		char fileToClient[1024];
@@ -181,9 +182,6 @@ void childCon(int newConnFD)
 	
 		// close the file pointer
 		fclose(filePtr);
-
-		printf("sending file contents %s", fileToClient);
-		fflush(stdout);
 
 		// set encrypted file contents to client
 		charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
