@@ -31,9 +31,15 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	// char arrays to hold the file and key contents
 	char fileArr[1024];
 	char keyArr[1024];
+
+	memset(fileArr, '\0', 1024);
+	memset(keyArr, '\0', 1024);
+
 	
 	// hold a line of the file as it is read in
 	char line[1024];
+
+	memset(line, '\0', 1024);
 
 	// open the two files
 	filePtr = fopen(file, "r");
@@ -49,13 +55,13 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	// read each file into its respective array until reach the end of the file
 	while(fgets(line, sizeof(line), filePtr) != NULL)
 	{
-		sprintf(fileArr, line);
+		sprintf(fileArr, "%s%s", fileArr, line);
 	}
-	fileArr[strcspn(fileArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
+	fileArr[strcspn(fileArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds	
 
 	while(fgets(line, sizeof(line), keyPtr) != NULL)
 	{
-		sprintf(keyArr, line);
+		sprintf(keyArr,"%s%s", keyArr, line);
 	}
 	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 
@@ -67,13 +73,12 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
 	
-	//printf("file length %d\n", fileLength);
-	//printf("key length %d\n", keyLength);
 
 	// check the length of the key is long enough for the plaintext file, if the key is too
-	// short return to main function
+	// short return to main function where program will terminate
 	if (keyLength < fileLength)
 	{
+		fprintf(stderr, "CLIENT: Key file is shorter than plaintext file!\n");
 		return 1;
 	}
 
@@ -83,8 +88,36 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	int fileMap[fileLength];
 	int i;
 	
+	// first, check for any bad characters in either the key or plaintext file. If any are 
+	// found return to main function where program will terminate
 	for (i = 0; i < fileLength; i++)
 	{
+		// if ASCII value is larger than value for 'Z'
+		if (keyArr[i] > 90 || fileArr[i] > 90)
+		{
+			fprintf(stderr, "CLIENT: Bad character in file!\n");
+			return 1;
+		}
+		// if ASCII value is smaller than value for 'A' and not a space character
+		else if (keyArr[i] != 32 && keyArr[i] < 65)
+		{
+			fprintf(stderr, "CLIENT: Bad character in file!\n");
+			return 1;
+		}	
+		else if (fileArr[i] != 32 && fileArr[i] < 65)
+		{
+			fprintf(stderr, "CLIENT: Bad character in file!\n");
+			return 1;
+		}
+		else
+		{
+			continue;
+		}
+	}
+
+	// if make it here, no bad characters in either the key or plaintext files
+	for (i = 0; i < fileLength; i++)
+	{	
 		// if the character is a space, directly assign it the value 26
 		if (keyArr[i] == 32 || fileArr[i] == 32)
 		{
@@ -132,7 +165,6 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	}
 	
 	// convert into the final encrypted message
-
 	for (i = 0; i < fileLength; i++)
 	{
 		cipherMsg[i] = sumMap[i] + 65;
@@ -146,6 +178,11 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	}
 	// add a null terminator to the end
 	cipherMsg[fileLength] = '\0';
+
+	printf("Encrypted text %s\n", cipherMsg);
+	fflush(stdout);
+	printf("Encrypted text length: encrypt - %d\n", strlen(cipherMsg));
+	fflush(stdout);
 
 	return 0;
 }
@@ -166,6 +203,9 @@ int decrypt(char* encryptedTxt, char* key1)
 	char keyArr[1024];
 	char line[1024];	
 
+	memset(keyArr, '\0', 1024);
+	memset(line, '\0', 1024);
+
 	// open key file
 	keyPtr = fopen(key1, "r");
 
@@ -179,7 +219,7 @@ int decrypt(char* encryptedTxt, char* key1)
 	// read contents of key file into char array
 	while(fgets(line, sizeof(line), keyPtr) != NULL)
 	{
-		sprintf(keyArr, line);
+		sprintf(keyArr, "%s%s", keyArr, line);
 	}
 	keyArr[strcspn(keyArr, "\n")] = '\0'; // Remove the trailing \n that fgets adds
 	
@@ -196,6 +236,8 @@ int decrypt(char* encryptedTxt, char* key1)
 	int msgLength = strlen(encryptedTxt);
 	int keyLength = strlen(keyArr);
 
+	//printf("encrypted msg length - decrypt %d\n", msgLength);
+	//printf("key length %d\n", keyLength);
 
 	// check the length of the key is long enough for the encrypted message, if the key is too
 	// short return to main function
@@ -259,6 +301,8 @@ int decrypt(char* encryptedTxt, char* key1)
 			temp += 27;
 		} 
 		minusMap[i] = temp % 27;
+		//printf("minusMap %d, %d\n", i, minusMap[i]);
+		//fflush(stdout);
 	}	
 
 	
@@ -343,12 +387,12 @@ int main(int argc, char *argv[])
 
 		// call encryption function to generate encrypted message
 		char encryptMsg[1024];
+		memset(encryptMsg, '\0', 1024);
 		int encryptSuccess = encrypt(fileName, keyFile, encryptMsg);
 
 		// if there was an error with the encryption, terminate and set the exit value to 1		
 		if (encryptSuccess == 1)
 		{
-			fprintf(stderr, "CLIENT: Plaintext and key files are different lengths\n");
 			exit(1);
 		}
 		
@@ -448,21 +492,28 @@ int main(int argc, char *argv[])
 
 
 		// Get return message from server which sends the oldest file for this user which will be
-		// decrypted by the client using the key and print the decrypted message to stdout
-		
-		memset(buffer, '\0', sizeof(buffer)); // Clear out the buffer again for reuse
-		charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0); // Read data from the socket, leaving \0 at end
+		// decrypted by the client using the key and print the decrypted message to stdout	
+		memset(buffer, '\0', sizeof(buffer)); 				// Clear out the buffer again for reuse
+		charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);	 // Read data from the socket, leaving \0 at end
 		if (charsRead < 0) error("CLIENT: ERROR reading from socket");
 
-		// pass encrypted text received from server to decrypt function
-		int decryptSuccess = decrypt(buffer, keyFile);
-	
-	
-		// if there was an error with the decryption, terminate and set the exit value to 1		
-		if (decryptSuccess == 1)
+		// if received 'none' from server, there were no encrypted messages for the specified user so
+		// display error message
+		if (strcmp(buffer, "none") == 0)
 		{
-			fprintf(stderr, "CLIENT: Encrypted text and key are different lengths\n");
-			exit(1);
+			fprintf(stderr, "CLIENT: User has no encrypted messages!\n");
+		}
+		else
+		{
+			// pass encrypted text received from server to decrypt function
+			int decryptSuccess = decrypt(buffer, keyFile);
+	
+			// if there was an error with the decryption, terminate and set the exit value to 1		
+			if (decryptSuccess == 1)
+			{
+				fprintf(stderr, "CLIENT: Encrypted text and key are different lengths\n");
+				exit(1);
+			}
 		}
 	}
 

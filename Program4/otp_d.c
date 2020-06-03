@@ -98,6 +98,9 @@ void childCon(int newConnFD)
 		sprintf(filepath, "./%s/%s", user, cipherText);
 		int filedescriptor = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	
+		//printf("encrypted msg received at server: %s\n", encryptedMsg1);
+		//fflush(stdout);
+
 		// write the encrypted message to a file
 		write(filedescriptor, encryptedMsg1, strlen(encryptedMsg1)*sizeof(char));		
 
@@ -125,8 +128,9 @@ void childCon(int newConnFD)
 		struct stat fileStats;					// hold stats about userFile
 		char targetDirPrefix[64] = "cipherText";		// prefix of each encrypted text file
 		char* oldestFile = malloc(sizeof(char)*1024);		// holds the name of the oldest file
-		memset(oldestFile, '\0', sizeof(oldestFile));
+		memset(oldestFile, '\0', 1024);
 		char fullpath[1024];
+		memset(fullpath, '\0', 1024);
 
 		// if a directory for that user does not exit
 		if (userDir == NULL)
@@ -161,9 +165,15 @@ void childCon(int newConnFD)
 			// close user directory
 			closedir(userDir);
 			
+			char fileToClient[1024];
+		
+			memset(fileToClient, '\0', 1024);
+
+			// if user has no encrypted messages, send 'none' to the client who
+			// will display an error message
 			if (strlen(oldestFile) == 0)
-			{		
-				fprintf(stderr, "SERVER: User has no encrypted messages\n");
+			{
+				sprintf(fileToClient, "%s", "none");
 			}
 			else	
 			{
@@ -172,13 +182,13 @@ void childCon(int newConnFD)
 
 				// store the contents of the oldest file in a string and send back to client
 				FILE *filePtr;		// file stream pointer for encrypted file
-				char fileToClient[1024];
 
 				// open the oldest file for reading
 				filePtr = fopen(oldestFile, "r");
 	
 				// holds a line of the file as it is read in
-				char line[256];
+				char line[1024];
+				memset(line, '\0', 1024);
 
 				// if error opening the file
 				if (filePtr == NULL)
@@ -189,7 +199,7 @@ void childCon(int newConnFD)
 				// read the file into its array until reach end of file
 				while(fgets(line, sizeof(line), filePtr) != NULL)
 				{
-					sprintf(fileToClient, line);
+					sprintf(fileToClient, "%s%s", fileToClient, line);
 				}
 				// remove the trailing '\n' that fgets adds
 				fileToClient[strcspn(fileToClient, "\n")] = '\0';
@@ -199,12 +209,21 @@ void childCon(int newConnFD)
 	
 				// delete the encrypted file
 				remove(oldestFile);
-
-				// send encrypted file contents to client
-				charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
-		
-				if (charsRead < 0) perror("ERROR writing to socket\n");		
 			}
+			// get size of encrypted message
+			int msgSize = strlen(fileToClient);	
+
+			//printf("msg to send: %s\n", fileToClient);
+			//fflush(stdout);
+			//printf("msg to send: size %d\n", msgSize);
+			//fflush(stdout);
+
+			// send encrypted file contents (or the word 'none') client		
+			charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
+			//printf("sending encrypted message, sent %d\n", charsRead);
+			//fflush(stdout);
+			
+			if (charsRead < 0) perror("ERROR writing to socket\n");					
 		}
 	}		
 
