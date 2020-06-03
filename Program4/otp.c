@@ -67,8 +67,8 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
 	
-	printf("file length %d\n", fileLength);
-	printf("key length %d\n", keyLength);
+	//printf("file length %d\n", fileLength);
+	//printf("key length %d\n", keyLength);
 
 	// check the length of the key is long enough for the plaintext file, if the key is too
 	// short return to main function
@@ -263,7 +263,7 @@ int decrypt(char* encryptedTxt, char* key1)
 
 	
 	// convert into final uncrypted message
-	char finalMsg[256];
+	char finalMsg[1024];
 
 	for (i = 0; i < msgLength; i++)
 	{
@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
 		strcpy(keyFile, argv[4]);
 
 		// call encryption function to generate encrypted message
-		char encryptMsg[256];
+		char encryptMsg[1024];
 		int encryptSuccess = encrypt(fileName, keyFile, encryptMsg);
 
 		// if there was an error with the encryption, terminate and set the exit value to 1		
