@@ -14,6 +14,8 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
+#define MAX_SIZE 100000
+
 void error(const char *msg) { perror(msg); exit(0); } // Error function used for reporting issues
 
 /* ********************************************************************************** 
@@ -29,17 +31,17 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	FILE* keyPtr;
 
 	// char arrays to hold the file and key contents
-	char fileArr[1024];
-	char keyArr[1024];
+	char fileArr[MAX_SIZE];
+	char keyArr[MAX_SIZE];
 
-	memset(fileArr, '\0', 1024);
-	memset(keyArr, '\0', 1024);
+	memset(fileArr, '\0', MAX_SIZE);
+	memset(keyArr, '\0', MAX_SIZE);
 
 	
 	// hold a line of the file as it is read in
-	char line[1024];
+	char line[MAX_SIZE];
 
-	memset(line, '\0', 1024);
+	memset(line, '\0', MAX_SIZE);
 
 	// open the two files
 	filePtr = fopen(file, "r");
@@ -200,11 +202,11 @@ int decrypt(char* encryptedTxt, char* key1)
 	FILE* keyPtr;
 
 	// char array to hold contents of key file
-	char keyArr[1024];
-	char line[1024];	
+	char keyArr[MAX_SIZE];
+	char line[MAX_SIZE];	
 
-	memset(keyArr, '\0', 1024);
-	memset(line, '\0', 1024);
+	memset(keyArr, '\0', MAX_SIZE);
+	memset(line, '\0', MAX_SIZE);
 
 	// open key file
 	keyPtr = fopen(key1, "r");
@@ -307,7 +309,7 @@ int decrypt(char* encryptedTxt, char* key1)
 
 	
 	// convert into final uncrypted message
-	char finalMsg[1024];
+	char finalMsg[MAX_SIZE];
 
 	for (i = 0; i < msgLength; i++)
 	{
@@ -341,7 +343,7 @@ int main(int argc, char *argv[])
 	int socketFD, portNumber, charsWritten, charsRead;
 	struct sockaddr_in serverAddress;
 	struct hostent* serverHostInfo;
-	char buffer[1024];
+	char buffer[MAX_SIZE];
 
     
 	// allocate memory to hold name of user and store name of user
@@ -386,8 +388,8 @@ int main(int argc, char *argv[])
 		strcpy(keyFile, argv[4]);
 
 		// call encryption function to generate encrypted message
-		char encryptMsg[1024];
-		memset(encryptMsg, '\0', 1024);
+		char encryptMsg[MAX_SIZE];
+		memset(encryptMsg, '\0', MAX_SIZE);
 		int encryptSuccess = encrypt(fileName, keyFile, encryptMsg);
 
 		// if there was an error with the encryption, terminate and set the exit value to 1		
@@ -417,8 +419,8 @@ int main(int argc, char *argv[])
 	
 			// concatenate user name, mode and encrypted msg into one string, delimited with '-'
 			// character, prior to sending
-			char msgToServer[1024];
-			memset(msgToServer, '\0', sizeof(msgToServer));	
+			char msgToServer[MAX_SIZE];
+			memset(msgToServer, '\0', MAX_SIZE);	
 			strcat(user, "-");
 			strcat(msgToServer, user);
 			strcat(mode, "-");
@@ -479,8 +481,8 @@ int main(int argc, char *argv[])
 		
 		// concatenate user name and mode into one string, delimited by '-' character, before sending to
 		// server
-		char msgToServer[1024];
-		memset(msgToServer, '\0', sizeof(msgToServer));	
+		char msgToServer[MAX_SIZE];
+		memset(msgToServer, '\0', MAX_SIZE);	
 		strcat(user, "-");
 		strcat(msgToServer, user);
 		strcat(msgToServer, mode);

@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 
+#define MAX_SIZE 100000
 
 void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
 
@@ -33,16 +34,16 @@ void childCon(int newConnFD)
 	sleep(2);	
 
 	// Read the client's message from the socket
-	char buffer[1024];
+	char buffer[MAX_SIZE];
 	int charsRead;
-	memset(buffer, '\0', 1024);
+	memset(buffer, '\0', MAX_SIZE);
 	charsRead = recv(newConnFD, buffer, 1023, 0);
 	if (charsRead < 0) error("ERROR reading from socket");
 
 	// Extract mode, user and encrypted message sent by the client
 	char mode[16];
 	char user[32];
-	char encryptedMsg[1024];
+	char encryptedMsg[MAX_SIZE];
 	memset(encryptedMsg, '\0', sizeof(encryptedMsg));
 	char* token;
 
@@ -127,10 +128,10 @@ void childCon(int newConnFD)
 		struct dirent* userFile;				// holds information about a file in user's directory
 		struct stat fileStats;					// hold stats about userFile
 		char targetDirPrefix[64] = "cipherText";		// prefix of each encrypted text file
-		char* oldestFile = malloc(sizeof(char)*1024);		// holds the name of the oldest file
-		memset(oldestFile, '\0', 1024);
-		char fullpath[1024];
-		memset(fullpath, '\0', 1024);
+		char* oldestFile = malloc(sizeof(char)*MAX_SIZE);		// holds the name of the oldest file
+		memset(oldestFile, '\0', MAX_SIZE);
+		char fullpath[MAX_SIZE];
+		memset(fullpath, '\0', MAX_SIZE);
 
 		// if a directory for that user does not exit
 		if (userDir == NULL)
@@ -165,9 +166,9 @@ void childCon(int newConnFD)
 			// close user directory
 			closedir(userDir);
 			
-			char fileToClient[1024];
+			char fileToClient[MAX_SIZE];
 		
-			memset(fileToClient, '\0', 1024);
+			memset(fileToClient, '\0', MAX_SIZE);
 
 			// if user has no encrypted messages, send 'none' to the client who
 			// will display an error message
@@ -187,8 +188,8 @@ void childCon(int newConnFD)
 				filePtr = fopen(oldestFile, "r");
 	
 				// holds a line of the file as it is read in
-				char line[1024];
-				memset(line, '\0', 1024);
+				char line[MAX_SIZE];
+				memset(line, '\0', MAX_SIZE);
 
 				// if error opening the file
 				if (filePtr == NULL)
@@ -245,7 +246,7 @@ int main(int argc, char *argv[])
 	//int noProcesses = 0;						// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
-	char buffer[1024];
+	char buffer[MAX_SIZE];
 	struct sockaddr_in serverAddress, clientAddress;
 
 	// Check usage and args
