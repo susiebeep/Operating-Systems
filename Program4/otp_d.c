@@ -123,73 +123,89 @@ void childCon(int newConnFD)
 		DIR* userDir = opendir(user);				// open user's directory
 		struct dirent* userFile;				// holds information about a file in user's directory
 		struct stat fileStats;					// hold stats about userFile
+		char targetDirPrefix[64] = "cipherText";		// prefix of each encrypted text file
 		char* oldestFile = malloc(sizeof(char)*1024);		// holds the name of the oldest file
 		memset(oldestFile, '\0', sizeof(oldestFile));
 		char fullpath[1024];
 
-
+		// if a directory for that user does not exit
+		if (userDir == NULL)
+		{
+			fprintf(stderr, "SERVER: User has no encrypted messages\n");
+		}
 		// if user's directory can be opened
-		if (userDir > 0)
+		else
 		{
 			// check each file in the directory
 			while((userFile = readdir(userDir)) != NULL)
 			{
-				// store full path to file in user's directory
-				sprintf(fullpath, "./%s/%s", user, userFile->d_name);
-
-				// get stats about the file and store in fileStats struct
-				stat(fullpath, &fileStats);
-		
-				// if the timestamp on this file is the oldest so far, save
-				// its name and timestamp
-				if ((int)fileStats.st_mtime < oldestTime)
+				// if the file name has the desired prefix
+				if (strstr(userFile->d_name, targetDirPrefix) != NULL)
 				{
-					oldestTime = fileStats.st_mtime;			
-					strcpy(oldestFile, fullpath);
+					// store full path to file in user's directory
+					sprintf(fullpath, "./%s/%s", user, userFile->d_name);
+
+					// get stats about the file and store in fileStats struct
+					stat(fullpath, &fileStats);
+		
+					// if the timestamp on this file is the oldest so far, save
+					// its name and timestamp
+					if ((int)fileStats.st_mtime < oldestTime)
+					{
+						oldestTime = fileStats.st_mtime;			
+						strcpy(oldestFile, fullpath);
+					}
 				}
 			}
-		}
-		// close user directory
-		closedir(userDir);
+	
+			// close user directory
+			closedir(userDir);
+			
+			if (strlen(oldestFile) == 0)
+			{		
+				fprintf(stderr, "SERVER: User has no encrypted messages\n");
+			}
+			else	
+			{
+				printf("oldest file name %s\n", oldestFile);
+				fflush(stdout);	
+
+				// store the contents of the oldest file in a string and send back to client
+				FILE *filePtr;		// file stream pointer for encrypted file
+				char fileToClient[1024];
+
+				// open the oldest file for reading
+				filePtr = fopen(oldestFile, "r");
+	
+				// holds a line of the file as it is read in
+				char line[256];
+
+				// if error opening the file
+				if (filePtr == NULL)
+				{
+					fprintf(stderr, "SERVER: Error opening user file\n");
+					exit(1);
+				}	
+				// read the file into its array until reach end of file
+				while(fgets(line, sizeof(line), filePtr) != NULL)
+				{
+					sprintf(fileToClient, line);
+				}
+				// remove the trailing '\n' that fgets adds
+				fileToClient[strcspn(fileToClient, "\n")] = '\0';
+	
+				// close the file pointer
+				fclose(filePtr);
+	
+				// delete the encrypted file
+				remove(oldestFile);
+
+				// send encrypted file contents to client
+				charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
 		
-		printf("oldest file name %s\n", oldestFile);
-		fflush(stdout);	
-
-	
-		// store the contents of the oldest file in a string and send back to client
-		FILE *filePtr;		// file stream pointer for encrypted file
-		char fileToClient[1024];
-
-		// open the oldest file for reading
-		filePtr = fopen(oldestFile, "r");
-	
-		// holds a line of the file as it is read in
-		char line[256];
-
-		// if error opening the file
-		if (filePtr == NULL)
-		{
-			fprintf(stderr, "SERVER: Error opening user file\n");
-			exit(1);
+				if (charsRead < 0) perror("ERROR writing to socket\n");		
+			}
 		}
-		// read the file into its array until reach end of file
-		while(fgets(line, sizeof(line), filePtr) != NULL)
-		{
-			sprintf(fileToClient, line);
-		}
-		// remove the trailing '\n' that fgets adds
-		fileToClient[strcspn(fileToClient, "\n")] = '\0';
-	
-		// close the file pointer
-		fclose(filePtr);
-
-		// set encrypted file contents to client
-		charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
-		
-		if (charsRead < 0) perror("ERROR writing to socket\n");	
-		
-		// delete the encrypted file just sent to the client
-	
 	}		
 
 	// close existing socket which is connected to the client	
