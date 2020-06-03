@@ -1,15 +1,15 @@
 /* ********************************************************************************** 
  ** Program Name:   Program 4 - Dead Drop (keygen.c)
  ** Author:         Susan Hibbert
- ** Date:           26th May 2020  			      
+ ** Date:           3rd June 2020  			      
  ** Description:    This program creates a key file of specified length, passed in
 		    on the command line. The key is the random sequence of characters
 		    that will be used to convert Plaintext to Ciphertext and back
 		    again. The key is never re-used, otherwise the encryption is in
 		    danger of being compromised.
 	
-		    The characters in the file generated will be any of the 27 allowed
-		    characters (26 capital letters and space character) 
+		    The characters in the file generated will be any of the 27 
+		    permitted characters (26 capital letters and space character) 
  ** *******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
 	// convert the length of the key specified by the user on the command line from a
 	// character to an integer
 	int keyLength = atoi(argv[1]);
+
 	// if there is an error output a message to stderr
 	if (keyLength == 0)
 	{

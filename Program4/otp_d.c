@@ -1,8 +1,11 @@
 /* ********************************************************************************** 
  ** Program Name:   Program 4 - Dead Drop (otp_d.c)
  ** Author:         Susan Hibbert
- ** Date:           26th May 2020  			      
- ** Description:    SERVER
+ ** Date:           3rd June 2020  			      
+ ** Description:    This program acts as the server. It runs in the background as a
+		    daemon. It responds to requests from otp appropriately, depending
+		    on whether it is connecting in post or get mode (details described
+		    below).
  ** *******************************************************************************/
 
 #include <stdio.h>
@@ -22,15 +25,29 @@ void error(const char *msg) { perror(msg); exit(1); } // Error function used for
 
 
 /* ********************************************************************************** 
- ** Description:
- ** Input(s): 	File descriptor number representing new client connection
- ** Output(s): 	 
- ** Returns: 
+ ** Description: This function is called after a new client connection is made. It
+		 represents a child process of otp_d. 
+		 It first checks if otp is connecting in post or get mode. If otp has
+		 connected in post mode, then this child receives a user name and
+		 encrypted message via the communication socket. The otp_d child will
+		 then write the encrypted message to a file and print the path to the
+		 file.
+		 If otp has connected in get mode, then the child process of otp_d will
+		 retrieve from otp a user name only. The child will then retrieve the
+		 contents of the oldest file for this user and send them to otp, then
+		 delete the ciphertext file.
+ ** Input(s): 	 File descriptor number representing new client connection
+ ** Output(s): 	 Displays error messages if there is a problem reading from the client
+		 socket. Depending on whether otp has connected in post or get mode,
+		 error messages may be displayed if an error occurs while the child of
+		 otp_d carries out any of its post or get mode tasks, as detailed
+		 above
+ ** Returns:	 No return value 
  ** *******************************************************************************/
 
 void childCon(int newConnFD)
 {
-	// Child process sleeps for 2 seconds
+	// Initially the child process sleeps for 2 seconds
 	sleep(2);	
 
 	// Read the client's message from the socket
@@ -40,7 +57,8 @@ void childCon(int newConnFD)
 	charsRead = recv(newConnFD, buffer, (MAX_SIZE - 1), 0);
 	if (charsRead < 0) error("ERROR reading from socket");
 
-	// Extract mode, user and encrypted message sent by the client
+	// Retrieve mode, user and encrypted message sent by the client and save 
+	// into local variables
 	char mode[16];
 	char user[32];
 	char encryptedMsg[MAX_SIZE];
@@ -72,27 +90,26 @@ void childCon(int newConnFD)
 	// POST MODE
 	if (strcmp(mode, "post") == 0)
 	{
-		// seed random number generator, used when creating file names
+		// seed random number generator, used when creating cipher text file names
 		srand(time(0));	
+
 		// create a copy of the encrypted message with a newline char at the end, so the encrypted
 		// text file ends with a newline character as per the specifications
 		int msgLength = strlen(encryptedMsg);
 		char* encryptedMsg1 = malloc(msgLength + 2);
 		strcpy(encryptedMsg1, encryptedMsg);
 		strcat(encryptedMsg1, "\n");
-
-		//printf("encrypted msg received at server plus newline = %s", encryptedMsg1);
-		//fflush(stdout);
-		
+	
 		// create and open a directory for the user
 		mkdir(user, 0755);
 		DIR* userDir = opendir(user);
 
-		// file name to store encrypted message
+		// declare file name to store encrypted message
 		char cipherText[64];
 		char* fileName = "cipherText";
 
-		// generate a random number between 0 and 100 and append to the end of the file name
+		// generate a random number between 0 and 1000 and append to the end of the file name
+		// in order to generate unique cipher text file names for each user
 		int randNo = rand() % 1000;
 		sprintf(cipherText, "%s%d", fileName, randNo);
 
@@ -101,10 +118,7 @@ void childCon(int newConnFD)
 		sprintf(filepath, "./%s/%s", user, cipherText);
 		int filedescriptor = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	
-		//printf("length of encrypted msg received at server: %d\n", strlen(encryptedMsg1));
-		//fflush(stdout);
-
-		// write the encrypted message to a file
+		// write the encrypted message to a file in the user's directory
 		write(filedescriptor, encryptedMsg1, strlen(encryptedMsg1)*sizeof(char));		
 
 		// print the path to the encrypted file	
@@ -121,18 +135,16 @@ void childCon(int newConnFD)
 	// GET MODE
 	else if (strcmp(mode, "get") == 0)
 	{
-	// retrieve the contents of the oldest file for the user and send them to otp
-	// then delete the ciphertext file
+		// find and retrieve the encrypted file contents of the oldest file for the specified user
 	
 		time_t oldestTime = time(0);				// get current time to initialize oldestTime variable
-		
 		DIR* userDir = opendir(user);				// open user's directory
 		struct dirent* userFile;				// holds information about a file in user's directory
 		struct stat fileStats;					// hold stats about userFile
 		char targetDirPrefix[64] = "cipherText";		// prefix of each encrypted text file
-		char* oldestFile = malloc(sizeof(char)*MAX_SIZE);		// holds the name of the oldest file
+		char* oldestFile = malloc(sizeof(char)*MAX_SIZE);	// holds the name of the oldest file
 		memset(oldestFile, '\0', MAX_SIZE);
-		char fullpath[MAX_SIZE];
+		char fullpath[MAX_SIZE];				// holds the full path to the oldest file
 		memset(fullpath, '\0', MAX_SIZE);
 
 		// if a directory for that user does not exit
@@ -168,16 +180,17 @@ void childCon(int newConnFD)
 			// close user directory
 			closedir(userDir);
 			
+			// declare a string to hold the encrypted message to be sent to the client
 			char fileToClient[MAX_SIZE];
-		
 			memset(fileToClient, '\0', MAX_SIZE);
 
 			// if user has no encrypted messages, send 'none' to the client who
-			// will display an error message
+			// will then display an error message
 			if (strlen(oldestFile) == 0)
 			{
 				sprintf(fileToClient, "%s", "none");
 			}
+			// if the user does have an encrypted message stored
 			else	
 			{
 				printf("oldest file name %s\n", oldestFile);
@@ -199,7 +212,7 @@ void childCon(int newConnFD)
 					fprintf(stderr, "SERVER: Error opening user file\n");
 					exit(1);
 				}	
-				// read the file into its array until reach end of file
+				// read the file into the string until reach end of file
 				while(fgets(line, sizeof(line), filePtr) != NULL)
 				{
 					sprintf(fileToClient, "%s%s", fileToClient, line);
@@ -213,18 +226,9 @@ void childCon(int newConnFD)
 				// delete the encrypted file
 				remove(oldestFile);
 			}
-			// get size of encrypted message
-			int msgSize = strlen(fileToClient);	
 
-			//printf("msg to send: %s\n", fileToClient);
-			//fflush(stdout);
-			//printf("msg to send: size %d\n", msgSize);
-			//fflush(stdout);
-
-			// send encrypted file contents (or the word 'none') client		
+			// send encrypted file contents (or the word 'none') to client		
 			charsRead = send(newConnFD, fileToClient, strlen(fileToClient), 0);
-			//printf("sending encrypted message, sent %d\n", charsRead);
-			//fflush(stdout);
 			
 			if (charsRead < 0) perror("ERROR writing to socket\n");					
 		}
@@ -236,21 +240,28 @@ void childCon(int newConnFD)
 
 
 /* ********************************************************************************** 
- ** Description: Main function
- ** Input(s): 	
- ** Output(s): 	 
- ** Returns: 
+ ** Description: Main function. Upon execution, otp_d will listen on a particular
+		 port/socket, assigned when it is first ran as a command line argument.
+		 When a connection is made, otp_d accepts the connection and generates
+		 a new socket used for the actual communication, and then forks a 
+		 child process to handle the rest of the transaction which will occur
+		 on the newly accepted socket. The original server daemon process will
+		 continue listening for new connections. It can support up to five
+		 concurrent socket connections running at the same time. 
+ ** Input(s): 	 Command line argument representing a port number
+ ** Output(s): 	 Displays error messages if there are any networking or connection
+		 issues or if an issue occurs when spawning a new child process
+ ** Returns: 	 Return value of 0
  ** *******************************************************************************/
 
 int main(int argc, char *argv[])
 {
-	//int noProcesses = 0;						// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[MAX_SIZE];
 	struct sockaddr_in serverAddress, clientAddress;
 
-	// Check usage and args
+	// Check usage and command line arguments
 	if (argc < 2) { fprintf(stderr,"USAGE: %s port\n", argv[0]); exit(1); }
 
 	// Set up the address struct for this process (the server)
@@ -285,13 +296,14 @@ int main(int argc, char *argv[])
 		if (spawnPid == -1)
 		{
 			perror("Error spawning child process\n");
-		}		
+		}
+		// if child process spawned successfully		
 		else if (spawnPid == 0)
 		{
 			// Child process closes the listening socket
 			close(listenSocketFD); 
 
-			// pass file descriptor of new connection as argument
+			// pass file descriptor of new connection as argument to childCon function
 			childCon(establishedConnectionFD);
 
 			// exit once child process returns and re-enter outer infinite while loop
