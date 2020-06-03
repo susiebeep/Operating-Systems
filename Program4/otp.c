@@ -74,7 +74,10 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	// get the size of the two files
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
-	
+
+	//printf("file length %d\n", fileLength);	
+	//fflush(stdout);
+
 
 	// check the length of the key is long enough for the plaintext file, if the key is too
 	// short return to main function where program will terminate
@@ -181,10 +184,10 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	// add a null terminator to the end
 	cipherMsg[fileLength] = '\0';
 
-	printf("Encrypted text %s\n", cipherMsg);
-	fflush(stdout);
-	printf("Encrypted text length: encrypt - %d\n", strlen(cipherMsg));
-	fflush(stdout);
+	//printf("Encrypted text %s\n", cipherMsg);
+	//fflush(stdout);
+	//printf("Encrypted text length: encrypt - %d\n", strlen(cipherMsg));
+	//fflush(stdout);
 
 	return 0;
 }

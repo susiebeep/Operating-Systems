@@ -37,14 +37,14 @@ void childCon(int newConnFD)
 	char buffer[MAX_SIZE];
 	int charsRead;
 	memset(buffer, '\0', MAX_SIZE);
-	charsRead = recv(newConnFD, buffer, 1023, 0);
+	charsRead = recv(newConnFD, buffer, (MAX_SIZE - 1), 0);
 	if (charsRead < 0) error("ERROR reading from socket");
 
 	// Extract mode, user and encrypted message sent by the client
 	char mode[16];
 	char user[32];
 	char encryptedMsg[MAX_SIZE];
-	memset(encryptedMsg, '\0', sizeof(encryptedMsg));
+	memset(encryptedMsg, '\0', MAX_SIZE);
 	char* token;
 
 	token = strtok(buffer, "-");
@@ -72,6 +72,8 @@ void childCon(int newConnFD)
 	// POST MODE
 	if (strcmp(mode, "post") == 0)
 	{
+		// seed random number generator, used when creating file names
+		srand(time(0));	
 		// create a copy of the encrypted message with a newline char at the end, so the encrypted
 		// text file ends with a newline character as per the specifications
 		int msgLength = strlen(encryptedMsg);
@@ -91,7 +93,7 @@ void childCon(int newConnFD)
 		char* fileName = "cipherText";
 
 		// generate a random number between 0 and 100 and append to the end of the file name
-		int randNo = rand() % 100;
+		int randNo = rand() % 1000;
 		sprintf(cipherText, "%s%d", fileName, randNo);
 
 		// create a filepath variable and store the path to the user's directory
@@ -99,7 +101,7 @@ void childCon(int newConnFD)
 		sprintf(filepath, "./%s/%s", user, cipherText);
 		int filedescriptor = open(filepath, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	
-		//printf("encrypted msg received at server: %s\n", encryptedMsg1);
+		//printf("length of encrypted msg received at server: %d\n", strlen(encryptedMsg1));
 		//fflush(stdout);
 
 		// write the encrypted message to a file
@@ -242,7 +244,6 @@ void childCon(int newConnFD)
 
 int main(int argc, char *argv[])
 {
-	srand(time(0));							// seed random number generator - used later when creating files
 	//int noProcesses = 0;						// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
