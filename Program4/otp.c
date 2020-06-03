@@ -67,6 +67,9 @@ int encrypt(char* file, char* key, char* cipherMsg)
 	int keyLength = strlen(keyArr);
 	int fileLength = strlen(fileArr);
 	
+	printf("file length %d\n", fileLength);
+	printf("key length %d\n", keyLength);
+
 	// check the length of the key is long enough for the plaintext file, if the key is too
 	// short return to main function
 	if (keyLength < fileLength)
@@ -192,6 +195,7 @@ int decrypt(char* encryptedTxt, char* key1)
 	// get size of encrypted text and key
 	int msgLength = strlen(encryptedTxt);
 	int keyLength = strlen(keyArr);
+
 
 	// check the length of the key is long enough for the encrypted message, if the key is too
 	// short return to main function

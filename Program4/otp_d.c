@@ -33,10 +33,10 @@ void childCon(int newConnFD)
 	sleep(2);	
 
 	// Read the client's message from the socket
-	char buffer[256];
+	char buffer[1024];
 	int charsRead;
-	memset(buffer, '\0', 256);
-	charsRead = recv(newConnFD, buffer, 255, 0);
+	memset(buffer, '\0', 1024);
+	charsRead = recv(newConnFD, buffer, 1023, 0);
 	if (charsRead < 0) error("ERROR reading from socket");
 
 	// Extract mode, user and encrypted message sent by the client
@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
 	//int noProcesses = 0;						// to keep track of the number of child processes (max 5)
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
-	char buffer[256];
+	char buffer[1024];
 	struct sockaddr_in serverAddress, clientAddress;
 
 	// Check usage and args
