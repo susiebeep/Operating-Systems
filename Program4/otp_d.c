@@ -90,9 +90,6 @@ void childCon(int newConnFD)
 	// POST MODE
 	if (strcmp(mode, "post") == 0)
 	{
-		// seed random number generator, used when creating cipher text file names
-		srand(time(0));	
-
 		// create a copy of the encrypted message with a newline char at the end, so the encrypted
 		// text file ends with a newline character as per the specifications
 		int msgLength = strlen(encryptedMsg);
@@ -108,10 +105,10 @@ void childCon(int newConnFD)
 		char cipherText[64];
 		char* fileName = "cipherText";
 
-		// generate a random number between 0 and 1000 and append to the end of the file name
+		// get the process id of the child and append to the end of the file name
 		// in order to generate unique cipher text file names for each user
-		int randNo = rand() % 1000;
-		sprintf(cipherText, "%s%d", fileName, randNo);
+		int pid = getpid();
+		sprintf(cipherText, "%s%d", fileName, pid);
 
 		// create a filepath variable and store the path to the user's directory
 		char* filepath = malloc(128*sizeof(char));
@@ -193,9 +190,6 @@ void childCon(int newConnFD)
 			// if the user does have an encrypted message stored
 			else	
 			{
-				printf("oldest file name %s\n", oldestFile);
-				fflush(stdout);	
-
 				// store the contents of the oldest file in a string and send back to client
 				FILE *filePtr;		// file stream pointer for encrypted file
 
@@ -255,7 +249,7 @@ void childCon(int newConnFD)
  ** *******************************************************************************/
 
 int main(int argc, char *argv[])
-{
+{	
 	int listenSocketFD, establishedConnectionFD, portNumber, charsRead;
 	socklen_t sizeOfClientInfo;
 	char buffer[MAX_SIZE];
